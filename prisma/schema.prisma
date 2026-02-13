@@ -1,0 +1,247 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String   // Hashed with bcrypt
+  role      UserRole @default(CASHIER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[]
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  CASHIER
+  KITCHEN
+}
+
+// ============================================
+// MENU MANAGEMENT
+// ============================================
+
+model Category {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  image       String?
+  sortOrder   Int        @default(0)
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  menuItems   MenuItem[]
+}
+
+model MenuItem {
+  id              String               @id @default(cuid())
+  name            String
+  description     String?
+  price           Decimal              @db.Decimal(10, 2)
+  image           String?
+  categoryId      String
+  category        Category             @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  isAvailable     Boolean              @default(true)
+  preparationTime Int?                 // in minutes
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  orderItems      OrderItem[]
+  ingredients     MenuItemIngredient[]
+}
+
+// ============================================
+// TABLE MANAGEMENT (FOR DINE-IN ORDERS)
+// ============================================
+
+model Table {
+  id       String      @id @default(cuid())
+  number   Int         @unique
+  capacity Int
+  status   TableStatus @default(AVAILABLE)
+  orders   Order[]
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+}
+
+// ============================================
+// ORDER MANAGEMENT (SUPPORTS DINE-IN & TAKEAWAY)
+// ============================================
+
+model Order {
+  id            String        @id @default(cuid())
+  orderNumber   String        @unique
+  orderType     OrderType     @default(DINE_IN) // DINE-IN or TAKEAWAY
+  
+  // For DINE-IN orders
+  tableId       String?       // Optional - only for DINE-IN
+  table         Table?        @relation(fields: [tableId], references: [id])
+  
+  // For TAKEAWAY orders
+  customerName  String?       // Customer name (optional for takeaway)
+  customerPhone String?       // Customer phone (optional for takeaway)
+  
+  // Common fields
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+  subtotal      Decimal       @db.Decimal(10, 2)
+  tax           Decimal       @db.Decimal(10, 2)
+  discount      Decimal       @default(0) @db.Decimal(10, 2)
+  total         Decimal       @db.Decimal(10, 2)
+  status        OrderStatus   @default(PENDING)
+  paymentMethod PaymentMethod?
+  paymentStatus PaymentStatus @default(PENDING)
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  orderItems    OrderItem[]
+  transaction   Transaction?
+}
+
+enum OrderType {
+  DINE_IN   // Customer eating at restaurant
+  TAKEAWAY  // Customer taking food away
+}
+
+enum OrderStatus {
+  PENDING    // Order created, not started
+  PREPARING  // Kitchen is preparing
+  READY      // Food is ready
+  COMPLETED  // Order delivered and paid
+  CANCELLED  // Order cancelled
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  UPI
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  quantity   Int
+  price      Decimal  @db.Decimal(10, 2)
+  subtotal   Decimal  @db.Decimal(10, 2)
+  notes      String?  // Special instructions (e.g., "no onions")
+  createdAt  DateTime @default(now())
+}
+
+// ============================================
+// TRANSACTIONS
+// ============================================
+
+model Transaction {
+  id        String        @id @default(cuid())
+  orderId   String        @unique
+  order     Order         @relation(fields: [orderId], references: [id])
+  amount    Decimal       @db.Decimal(10, 2)
+  method    PaymentMethod
+  reference String?       // Transaction reference number
+  createdAt DateTime      @default(now())
+}
+
+// ============================================
+// INVENTORY MANAGEMENT
+// ============================================
+
+model Inventory {
+  id                String               @id @default(cuid())
+  name              String               @unique
+  description       String?
+  quantity          Decimal              @db.Decimal(10, 2)
+  unit              String               // kg, liter, pieces, etc.
+  lowStockThreshold Decimal              @db.Decimal(10, 2)
+  costPerUnit       Decimal?             @db.Decimal(10, 2)
+  supplierId        String?
+  supplier          Supplier?            @relation(fields: [supplierId], references: [id])
+  lastRestocked     DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  menuItems         MenuItemIngredient[]
+  stockHistory      StockHistory[]
+}
+
+model MenuItemIngredient {
+  id           String    @id @default(cuid())
+  menuItemId   String
+  menuItem     MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  inventoryId  String
+  inventory    Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+  quantityUsed Decimal   @db.Decimal(10, 2) // Quantity used per menu item
+
+  @@unique([menuItemId, inventoryId])
+}
+
+model Supplier {
+  id        String      @id @default(cuid())
+  name      String
+  contact   String?
+  email     String?
+  phone     String?
+  address   String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  inventory Inventory[]
+}
+
+model StockHistory {
+  id          String    @id @default(cuid())
+  inventoryId String
+  inventory   Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+  quantity    Decimal   @db.Decimal(10, 2)
+  type        StockType
+  reason      String?
+  createdAt   DateTime  @default(now())
+}
+
+enum StockType {
+  IN         // Stock added
+  OUT        // Stock removed (manual or auto)
+  ADJUSTMENT // Manual adjustment
+}
+
+// ============================================
+// SETTINGS
+// ============================================
+
+model Settings {
+  id             String   @id @default(cuid())
+  restaurantName String
+  address        String?
+  phone          String?
+  email          String?
+  taxRate        Decimal  @db.Decimal(5, 2) // e.g., 10.00 for 10%
+  currency       String   @default("USD")
+  receiptHeader  String?
+  receiptFooter  String?
+  updatedAt      DateTime @updatedAt
+}
