@@ -1,6 +1,7 @@
 import type { Config } from 'tailwindcss'
+import animatePlugin from 'tailwindcss-animate' // <-- import instead of require
 
-const config = {
+const config: Config = {
   darkMode: ['class'],
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
@@ -51,7 +52,6 @@ const config = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
-        // Custom colors for RestoPOS
         'dine-in': '#3b82f6',
         'takeaway': '#f97316',
       },
@@ -76,7 +76,7 @@ const config = {
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
-} satisfies Config
+  plugins: [animatePlugin], // <-- use imported plugin
+}
 
 export default config
