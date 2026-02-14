@@ -4,104 +4,92 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { createOrderSchema } from "@/lib/validations/order"
 
-// GET /api/orders - Get all orders
-export async function GET(request: NextRequest) {
+
+// GET /api/orders - Get all orders with filters
+export async function GET(request: Request) {
   try {
-    const session = await auth()
-
-    if (!session) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
-
     const { searchParams } = new URL(request.url)
     const status = searchParams.get("status")
     const orderType = searchParams.get("orderType")
-    const tableId = searchParams.get("tableId")
     const paymentStatus = searchParams.get("paymentStatus")
     const search = searchParams.get("search")
     const startDate = searchParams.get("startDate")
     const endDate = searchParams.get("endDate")
+    const limit = parseInt(searchParams.get("limit") || "50")
+    const sortBy = searchParams.get("sortBy") || "createdAt"
+    const sortOrder = searchParams.get("sortOrder") || "desc"
 
     // Build where clause
     const where: any = {}
 
-    if (status && status !== "all") {
-      where.status = status
+    // Status filter (can be comma-separated: "PENDING,PREPARING")
+    if (status) {
+      const statuses = status.split(",")
+      where.status = { in: statuses }
     }
 
-    if (orderType && orderType !== "all") {
+    if (orderType) {
       where.orderType = orderType
     }
 
-    if (tableId) {
-      where.tableId = tableId
-    }
-
-    if (paymentStatus && paymentStatus !== "all") {
+    if (paymentStatus) {
       where.paymentStatus = paymentStatus
     }
 
     if (search) {
-      where.orderNumber = {
-        contains: search,
-        mode: "insensitive",
-      }
+      where.orderNumber = { contains: search, mode: "insensitive" }
     }
 
     if (startDate || endDate) {
       where.createdAt = {}
-      if (startDate) {
-        where.createdAt.gte = new Date(startDate)
-      }
-      if (endDate) {
-        where.createdAt.lte = new Date(endDate)
-      }
+      if (startDate) where.createdAt.gte = new Date(startDate)
+      if (endDate) where.createdAt.lte = new Date(endDate)
     }
 
+    // Fetch orders with all relations INCLUDING menuItem
     const orders = await prisma.order.findMany({
       where,
       include: {
-        table: {
-          select: {
-            id: true,
-            number: true,
-          },
-        },
         user: {
           select: {
             id: true,
             name: true,
+            email: true,
+          },
+        },
+        table: {
+          select: {
+            id: true,
+            number: true,
+            capacity: true,
           },
         },
         orderItems: {
-          select: {
-            id: true,
-            quantity: true,
+          include: {
+            menuItem: {  // ✅ ADD THIS - Include menuItem relation
+              select: {
+                id: true,
+                name: true,
+                image: true,
+                price: true,
+              },
+            },
           },
         },
+        transaction: true,
       },
       orderBy: {
-        createdAt: "desc",
+        [sortBy]: sortOrder,
       },
+      take: limit,
     })
-
-    // ✅ IMPORTANT: Serialize Decimal fields to numbers
-    const serializedOrders = orders.map((order) => ({
-      ...order,
-      subtotal: Number(order.subtotal),
-      tax: Number(order.tax),
-      discount: Number(order.discount),
-      total: Number(order.total),
-    }))
 
     return NextResponse.json({
       success: true,
-      data: serializedOrders,
+      data: orders,
+      count: orders.length,
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error fetching orders:", error)
     return NextResponse.json(
       { success: false, error: "Failed to fetch orders" },
