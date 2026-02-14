@@ -1,9 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import  OrderTypeSelector  from "@/components/pos/OrderTypeSelector"
-import TableSelector  from "@/components/pos/TableSelector"
-import CustomerDetailsForm  from "@/components/pos/CustomerDetailsForm"
+import OrderTypeSelector from "@/components/pos/OrderTypeSelector"
+import { TableSelector } from "@/components/pos/TableSelector"
+import CustomerDetailsForm from "@/components/pos/CustomerDetailsForm"
 import { MenuGrid } from "@/components/pos/MenuGrid"
 import { Cart } from "@/components/pos/Cart"
 import { Card, CardContent } from "@/components/ui/card"

@@ -35,9 +35,7 @@ export function CheckoutModal({ open, onClose }: CheckoutModalProps) {
 
   const handleSubmit = async () => {
     if (!cart.orderSetup) {
-      toast.error("Order setup is missing", {
-        description: "Error",
-      })
+      toast.error("Order setup is missing")
       return
     }
 
@@ -74,21 +72,23 @@ export function CheckoutModal({ open, onClose }: CheckoutModalProps) {
         throw new Error(data.error || "Failed to create order")
       }
 
-      toast.success(`Order #${data.data.orderNumber} has been created successfully`, {
-        description: "Order created!",
-      })
+      // ✅ NEW: Show different message based on whether order was created or updated
+      if (data.isUpdated) {
+        toast.success("Items added!", {
+          description: data.message,
+        })
+      } else {
+        toast.success("Order created!", {
+          description: `Order #${data.data.orderNumber} has been created successfully`,
+        })
+      }
 
-      // Clear cart and close modal
       clearCart()
       onClose()
-
-      // Redirect to orders page
       router.push("/dashboard/orders")
     } catch (error: any) {
       console.error("Error creating order:", error)
-      toast.error(error.message || "Failed to create order", {
-        description: "Error",
-      })
+      toast.error(error.message || "Failed to create order")
     } finally {
       setIsSubmitting(false)
     }
@@ -188,7 +188,7 @@ export function CheckoutModal({ open, onClose }: CheckoutModalProps) {
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating Order...
+                Processing...
               </>
             ) : (
               "Confirm Order"
