@@ -20,31 +20,66 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status")
     const orderType = searchParams.get("orderType")
     const tableId = searchParams.get("tableId")
+    const paymentStatus = searchParams.get("paymentStatus")
+    const search = searchParams.get("search")
+    const startDate = searchParams.get("startDate")
+    const endDate = searchParams.get("endDate")
+
+    // Build where clause
+    const where: any = {}
+
+    if (status && status !== "all") {
+      where.status = status
+    }
+
+    if (orderType && orderType !== "all") {
+      where.orderType = orderType
+    }
+
+    if (tableId) {
+      where.tableId = tableId
+    }
+
+    if (paymentStatus && paymentStatus !== "all") {
+      where.paymentStatus = paymentStatus
+    }
+
+    if (search) {
+      where.orderNumber = {
+        contains: search,
+        mode: "insensitive",
+      }
+    }
+
+    if (startDate || endDate) {
+      where.createdAt = {}
+      if (startDate) {
+        where.createdAt.gte = new Date(startDate)
+      }
+      if (endDate) {
+        where.createdAt.lte = new Date(endDate)
+      }
+    }
 
     const orders = await prisma.order.findMany({
-      where: {
-        ...(status && { status: status as any }),
-        ...(orderType && { orderType: orderType as any }),
-        ...(tableId && { tableId }),
-      },
+      where,
       include: {
-        table: true,
+        table: {
+          select: {
+            id: true,
+            number: true,
+          },
+        },
         user: {
           select: {
             id: true,
             name: true,
-            email: true,
           },
         },
         orderItems: {
-          include: {
-            menuItem: {
-              select: {
-                id: true,
-                name: true,
-                image: true,
-              },
-            },
+          select: {
+            id: true,
+            quantity: true,
           },
         },
       },
@@ -53,11 +88,20 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    // ✅ IMPORTANT: Serialize Decimal fields to numbers
+    const serializedOrders = orders.map((order) => ({
+      ...order,
+      subtotal: Number(order.subtotal),
+      tax: Number(order.tax),
+      discount: Number(order.discount),
+      total: Number(order.total),
+    }))
+
     return NextResponse.json({
       success: true,
-      data: orders,
+      data: serializedOrders,
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching orders:", error)
     return NextResponse.json(
       { success: false, error: "Failed to fetch orders" },
@@ -65,7 +109,6 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-
 // POST /api/orders - Create new order OR add to existing order
 export async function POST(request: NextRequest) {
   try {

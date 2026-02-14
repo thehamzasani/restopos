@@ -44,7 +44,21 @@ async function getOrder(id: string) {
     },
   })
 
-  return order
+  if (!order) return null
+
+  // ✅ IMPORTANT: Convert Decimal to number for Client Components
+  return {
+    ...order,
+    subtotal: Number(order.subtotal),
+    tax: Number(order.tax),
+    discount: Number(order.discount),
+    total: Number(order.total),
+    orderItems: order.orderItems.map((item) => ({
+      ...item,
+      price: Number(item.price),
+      subtotal: Number(item.subtotal),
+    })),
+  }
 }
 
 export default async function OrderPage({ params }: OrderPageProps) {

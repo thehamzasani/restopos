@@ -5,12 +5,13 @@ import { prisma } from "@/lib/prisma"
 import { updateOrderStatusSchema } from "@/lib/validations/order"
 
 // PUT /api/orders/[id]/status - Update order status
+// PUT /api/orders/[id]/status - Update order status
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await auth()
+    const session = await auth()    
 
     if (!session) {
       return NextResponse.json(
@@ -72,7 +73,7 @@ export async function PUT(
       },
     })
 
-    // ✅ IMPORTANT: Auto-update table status when order is completed
+    // ✅ Auto-update table status when order is completed
     if (status === "COMPLETED" && existingOrder.tableId) {
       await prisma.table.update({
         where: { id: existingOrder.tableId },
@@ -100,9 +101,23 @@ export async function PUT(
       }
     }
 
+    // ✅ IMPORTANT: Serialize Decimal fields
+    const serializedOrder = {
+      ...updatedOrder,
+      subtotal: Number(updatedOrder.subtotal),
+      tax: Number(updatedOrder.tax),
+      discount: Number(updatedOrder.discount),
+      total: Number(updatedOrder.total),
+      orderItems: updatedOrder.orderItems.map((item) => ({
+        ...item,
+        price: Number(item.price),
+        subtotal: Number(item.subtotal),
+      })),
+    }
+
     return NextResponse.json({
       success: true,
-      data: updatedOrder,
+      data: serializedOrder,
       message: `Order status updated to ${status}`,
     })
   } catch (error: any) {
