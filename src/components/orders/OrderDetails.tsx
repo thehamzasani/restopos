@@ -48,7 +48,7 @@ export function OrderDetails({ order, onStatusUpdate }: OrderDetailsProps) {
       setIsUpdating(true)
 
       const response = await fetch(`/api/orders/${order.id}/status`, {
-        method: "PUT",
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
