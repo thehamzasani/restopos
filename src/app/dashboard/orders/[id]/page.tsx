@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma"
 import { notFound, redirect } from "next/navigation"
 import { OrderDetails } from "@/components/orders/OrderDetails"
+import { OrderReceiptButton } from "@/components/orders/OrderReceiptButton" 
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Printer } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { auth } from "@/lib/auth"
 
@@ -63,7 +64,7 @@ async function getOrder(id: string) {
 
 export default async function OrderPage({ params }: OrderPageProps) {
   const session = await auth()
-
+  
   if (!session) {
     redirect("/login")
   }
@@ -89,10 +90,9 @@ export default async function OrderPage({ params }: OrderPageProps) {
             <p className="text-gray-500">View and manage order information</p>
           </div>
         </div>
-        <Button variant="outline" className="gap-2">
-          <Printer className="h-4 w-4" />
-          Print Receipt
-        </Button>
+        
+        {/* ✅ UPDATED: Use new client component for receipt */}
+        <OrderReceiptButton orderId={params.id} />
       </div>
 
       {/* Order Details */}
