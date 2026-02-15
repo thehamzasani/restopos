@@ -142,3 +142,45 @@ export interface ApiResponse<T = any> {
   message?: string
   details?: any
 }
+
+export interface InventoryItem {
+  id: string
+  name: string
+  description?: string
+  quantity: number
+  unit: string
+  lowStockThreshold: number
+  costPerUnit?: number
+  supplierId?: string
+  supplier?: Supplier
+  lastRestocked?: Date
+  createdAt: Date
+  updatedAt: Date
+  stockHistory?: StockHistoryItem[]
+}
+
+export interface Supplier {
+  id: string
+  name: string
+  contact?: string
+  email?: string
+  phone?: string
+  address?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface StockHistoryItem {
+  id: string
+  inventoryId: string
+  quantity: number
+  type: "IN" | "OUT" | "ADJUSTMENT"
+  reason?: string
+  createdAt: Date
+}
+
+export enum StockType {
+  IN = "IN",
+  OUT = "OUT",
+  ADJUSTMENT = "ADJUSTMENT",
+}
