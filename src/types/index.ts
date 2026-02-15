@@ -48,21 +48,42 @@ export interface CartState {
 }
 
 // Menu Item Types (from Day 4)
+// export interface MenuItem {
+//   id: string
+//   name: string
+//   description: string | null
+//   price: number
+//   image: string | null
+//   categoryId: string
+//   isAvailable: boolean
+//   preparationTime: number | null
+//   createdAt: Date
+//   updatedAt: Date
+//   category?: {
+//     id: string
+//     name: string
+//   }
+// }
+
 export interface MenuItem {
   id: string
   name: string
-  description: string | null
+  description?: string
   price: number
-  image: string | null
+  image?: string
   categoryId: string
-  isAvailable: boolean
-  preparationTime: number | null
-  createdAt: Date
-  updatedAt: Date
-  category?: {
+  category: {
     id: string
     name: string
   }
+  isAvailable: boolean
+  preparationTime?: number
+  createdAt: Date
+  updatedAt: Date
+  _count?: {
+    ingredients: number
+  }
+  
 }
 
 // Category Types (from Day 3)
@@ -184,3 +205,5 @@ export enum StockType {
   OUT = "OUT",
   ADJUSTMENT = "ADJUSTMENT",
 }
+
+

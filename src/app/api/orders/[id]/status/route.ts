@@ -1,97 +1,120 @@
-import { NextResponse } from "next/server"
-import getServerSession from "next-auth"
+// src/app/api/orders/[id]/status/route.ts
+
+import { NextRequest, NextResponse } from "next/server"
+import  getServerSession from "next-auth"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { updateOrderStatusSchema } from "@/lib/validations/order"
+import { deductInventoryForOrder } from "@/lib/inventory-deduction"
 
-// PATCH /api/orders/[id]/status - Update order status
 export async function PATCH(
-  request: Request,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const session = await auth()
-    if (!session?.user?.id) {
+
+    if (!session) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 401 }
       )
     }
 
-    const body = await request.json()
-    const validatedData = updateOrderStatusSchema.parse(body)
+    const body = await req.json()
 
-    // Get the order first
-    const order = await prisma.order.findUnique({
+    // Validate input
+    const validationResult = updateOrderStatusSchema.safeParse(body)
+
+    if (!validationResult.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid input",
+          details: validationResult.error.issues,
+        },
+        { status: 400 }
+      )
+    }
+
+    const { status } = validationResult.data
+
+    // Get current order
+    const currentOrder = await prisma.order.findUnique({
       where: { id: params.id },
-      include: { table: true },
+      include: {
+        table: true,
+      },
     })
 
-    if (!order) {
+    if (!currentOrder) {
       return NextResponse.json(
         { success: false, error: "Order not found" },
         { status: 404 }
       )
     }
 
+    // ✅ NEW: Auto-deduct inventory when status changes to COMPLETED
+    if (status === "COMPLETED" && currentOrder.status !== "COMPLETED") {
+      const deductionResult = await deductInventoryForOrder(params.id)
+
+      if (!deductionResult.success) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: deductionResult.message,
+            insufficientItems: deductionResult.insufficientItems,
+          },
+          { status: 400 }
+        )
+      }
+    }
+
     // Update order status
-    const updatedOrder = await prisma.order.update({
+    const order = await prisma.order.update({
       where: { id: params.id },
       data: {
-        status: validatedData.status,
-        // Auto-update payment status when completed
-        ...(validatedData.status === "COMPLETED" && {
-          paymentStatus: "PAID",
-        }),
+        status,
+        updatedAt: new Date(),
       },
       include: {
+        user: {
+          select: {
+            name: true,
+          },
+        },
+        table: true,
         orderItems: {
           include: {
             menuItem: true,
           },
         },
-        table: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
       },
     })
 
-    // Update table status based on order status
-    if (order.tableId) {
-      if (validatedData.status === "COMPLETED" || validatedData.status === "CANCELLED") {
-        // Check if there are any other active orders for this table
-        const activeOrders = await prisma.order.findMany({
-          where: {
-            tableId: order.tableId,
-            id: { not: params.id },
-            status: { in: ["PENDING", "PREPARING", "READY"] },
-          },
-        })
-
-        // If no other active orders, set table to AVAILABLE
-        if (activeOrders.length === 0) {
-          await prisma.table.update({
-            where: { id: order.tableId },
-            data: { status: "AVAILABLE" },
-          })
-        }
-      }
+    // If order is completed and has a table, set table to AVAILABLE
+    if (status === "COMPLETED" && order.tableId) {
+      await prisma.table.update({
+        where: { id: order.tableId },
+        data: { status: "AVAILABLE" },
+      })
     }
 
     return NextResponse.json({
       success: true,
-      data: updatedOrder,
-      message: `Order status updated to ${validatedData.status}`,
+      data: {
+        ...order,
+        subtotal: Number(order.subtotal),
+        tax: Number(order.tax),
+        discount: Number(order.discount),
+        total: Number(order.total),
+      },
+      message: "Order status updated successfully",
     })
-  } catch (error: any) {
-    console.error("Error updating order status:", error)
+  } catch (error) {
+    console.error("Update order status error:", error)
     return NextResponse.json(
-      { success: false, error: error.message || "Failed to update order status" },
+      { success: false, error: "Failed to update order status" },
       { status: 500 }
     )
   }

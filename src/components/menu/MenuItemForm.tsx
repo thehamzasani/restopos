@@ -43,7 +43,7 @@ interface MenuItemFormProps {
   isLoading?: boolean
 }
 
-export default function MenuItemForm({
+export  function MenuItemForm({
   isOpen,
   onClose,
   onSubmit,

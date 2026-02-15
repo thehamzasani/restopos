@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import  getServerSession  from "next-auth"
+import getServerSession from "next-auth"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { menuItemSchema } from "@/lib/validations/menuItem"
@@ -8,7 +8,7 @@ import { menuItemSchema } from "@/lib/validations/menuItem"
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
-    
+
     if (!session) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
@@ -47,6 +47,12 @@ export async function GET(request: NextRequest) {
             name: true,
           },
         },
+        // ✅ NEW: Include ingredient count
+        _count: {
+          select: {
+            ingredients: true,
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -70,7 +76,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    
+
     if (!session) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
@@ -120,7 +126,7 @@ export async function POST(request: NextRequest) {
     })
   } catch (error: any) {
     console.error("Error creating menu item:", error)
-    
+
     if (error.name === "ZodError") {
       return NextResponse.json(
         { success: false, error: "Validation error", details: error.errors },

@@ -1,137 +1,193 @@
+// src/components/menu/MenuItemCard.tsx
+
 "use client"
 
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { useState } from "react"
+import { MenuItem } from "@/types"
+import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { MoreVertical, Edit, Trash2, Eye, EyeOff } from "lucide-react"
-import { formatCurrency } from "@/lib/utils"
+import {
+  MoreVertical,
+  Edit,
+  Trash2,
+  Eye,
+  EyeOff,
+  // ✅ NEW: Import icon
+  ChefHat,
+} from "lucide-react"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+import Image from "next/image"
+// ✅ NEW: Import IngredientManager
+import { IngredientManager } from "./IngredientManager"
 
 interface MenuItemCardProps {
-  menuItem: {
-    id: string
-    name: string
-    description: string | null
-    price: number
-    image: string | null
-    isAvailable: boolean
-    preparationTime: number | null
-    category: {
-      id: string
-      name: string
-    }
-  }
-  onEdit: (menuItem: any) => void
+  item: MenuItem
+  onEdit: (item: MenuItem) => void
   onDelete: (id: string) => void
-  onToggleAvailable: (id: string, isAvailable: boolean) => void
+  onRefresh?: () => void
 }
 
-export default function MenuItemCard({
-  menuItem,
+export function MenuItemCard({
+  item,
   onEdit,
   onDelete,
-  onToggleAvailable,
+  onRefresh,
 }: MenuItemCardProps) {
+  const router = useRouter()
+  // const { toast } = useToast()
+  const [toggling, setToggling] = useState(false)
+  // ✅ NEW: State for ingredient manager
+  const [showIngredients, setShowIngredients] = useState(false)
+
+  const toggleAvailability = async () => {
+    setToggling(true)
+    try {
+      const res = await fetch(`/api/menu/${item.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...item,
+          isAvailable: !item.isAvailable,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (data.success) {
+        
+        toast.success(`${item.name} is now ${!item.isAvailable ? "available" : "unavailable"}`)
+        onRefresh?.()
+      } else {
+        toast.error(data.error || "Failed to update item")
+      }
+    } catch (error) {
+      toast.error("Failed to update item")
+    } finally {
+      setToggling(false)
+    }
+  }
+
   return (
-    <Card className={!menuItem.isAvailable ? "opacity-60" : ""}>
-      <CardContent className="p-0">
-        {/* Image */}
-        {menuItem.image ? (
-          <div className="h-48 w-full overflow-hidden rounded-t-lg bg-gray-100">
-            <img
-              src={menuItem.image}
-              alt={menuItem.name}
-              className="h-full w-full object-cover"
-            />
-          </div>
-        ) : (
-          <div className="flex h-48 w-full items-center justify-center rounded-t-lg bg-gradient-to-br from-gray-100 to-gray-200">
-            <span className="text-4xl text-gray-400">🍽️</span>
-          </div>
-        )}
-
-        {/* Content */}
-        <div className="p-4">
-          <div className="mb-3 flex items-start justify-between">
-            <div className="flex-1">
-              <div className="mb-1 flex items-center gap-2">
-                <h3 className="text-lg font-semibold">{menuItem.name}</h3>
-                {!menuItem.isAvailable && (
-                  <Badge variant="secondary">Unavailable</Badge>
-                )}
+    <>
+      <Card className="hover:shadow-lg transition-shadow">
+        <CardContent className="p-4">
+          {/* Image */}
+          <div className="relative w-full h-48 mb-4 rounded-lg overflow-hidden bg-gray-100">
+            {item.image ? (
+              <Image
+                src={item.image}
+                alt={item.name}
+                fill
+                className="object-cover"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-400">
+                No Image
               </div>
-              <p className="mb-2 text-sm text-gray-500 line-clamp-2">
-                {menuItem.description || "No description"}
+            )}
+          </div>
+
+          {/* Title & Category */}
+          <div className="space-y-2">
+            <div className="flex items-start justify-between">
+              <h3 className="font-semibold text-lg">{item.name}</h3>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => onEdit(item)}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit
+                  </DropdownMenuItem>
+                  {/* ✅ NEW: Manage Ingredients option */}
+                  <DropdownMenuItem onClick={() => setShowIngredients(true)}>
+                    <ChefHat className="mr-2 h-4 w-4" />
+                    Manage Ingredients
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={toggleAvailability}
+                    disabled={toggling}
+                  >
+                    {item.isAvailable ? (
+                      <>
+                        <EyeOff className="mr-2 h-4 w-4" />
+                        Mark Unavailable
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="mr-2 h-4 w-4" />
+                        Mark Available
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => onDelete(item.id)}
+                    className="text-red-600"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            <Badge variant="outline">{item.category.name}</Badge>
+
+            {item.description && (
+              <p className="text-sm text-gray-600 line-clamp-2">
+                {item.description}
               </p>
-            </div>
+            )}
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onEdit(menuItem)}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() =>
-                    onToggleAvailable(menuItem.id, !menuItem.isAvailable)
-                  }
-                >
-                  {menuItem.isAvailable ? (
-                    <>
-                      <EyeOff className="mr-2 h-4 w-4" />
-                      Mark Unavailable
-                    </>
-                  ) : (
-                    <>
-                      <Eye className="mr-2 h-4 w-4" />
-                      Mark Available
-                    </>
-                  )}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => onDelete(menuItem.id)}
-                  className="text-red-600"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* ✅ NEW: Show ingredient count if any */}
+            {item._count?.ingredients && item._count.ingredients > 0 && (
+              <div className="flex items-center gap-1 text-sm text-gray-500">
+                <ChefHat className="h-3 w-3" />
+                <span>{item._count.ingredients} ingredients linked</span>
+              </div>
+            )}
+          </div>
+        </CardContent>
+
+        <CardFooter className="p-4 pt-0 flex items-center justify-between">
+          <div>
+            <p className="text-2xl font-bold text-blue-600">
+              ${Number(item.price).toFixed(2)}
+            </p>
+            {item.preparationTime && (
+              <p className="text-xs text-gray-500">
+                {item.preparationTime} min prep
+              </p>
+            )}
           </div>
 
-          {/* Footer Info */}
-          <div className="flex items-center justify-between border-t pt-3">
-            <div className="flex flex-col">
-              <span className="text-xs text-gray-500">Category</span>
-              <Badge variant="outline" className="mt-1 w-fit">
-                {menuItem.category.name}
-              </Badge>
-            </div>
-            <div className="flex flex-col items-end">
-              <span className="text-xs text-gray-500">Price</span>
-              <span className="mt-1 text-xl font-bold text-blue-600">
-                {formatCurrency(Number(menuItem.price))}
-              </span>
-            </div>
-          </div>
+          <Badge variant={item.isAvailable ? "default" : "secondary"}>
+            {item.isAvailable ? "Available" : "Unavailable"}
+          </Badge>
+        </CardFooter>
+      </Card>
 
-          {menuItem.preparationTime && (
-            <div className="mt-2 text-xs text-gray-500">
-              ⏱️ Prep time: {menuItem.preparationTime} min
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+      {/* ✅ NEW: Ingredient Manager Dialog */}
+      <IngredientManager
+        menuItemId={item.id}
+        menuItemName={item.name}
+        open={showIngredients}
+        onOpenChange={setShowIngredients}
+        onUpdate={onRefresh}
+      />
+    </>
   )
 }

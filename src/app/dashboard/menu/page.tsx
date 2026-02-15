@@ -9,13 +9,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Plus, Filter } from "lucide-react"
-import MenuItemCard from "@/components/menu/MenuItemCard"
-import MenuItemForm from "@/components/menu/MenuItemForm"
+import { Plus } from "lucide-react"
+import { MenuItemCard } from "@/components/menu/MenuItemCard"
+import { MenuItemForm } from "@/components/menu/MenuItemForm"
 import SearchBar from "@/components/shared/SearchBar"
-import LoadingSpinner from "@/components/shared/LoadingSpinner"
-import EmptyState from "@/components/shared/EmptyState"
-import { toast } from "sonner"
+import { toast } from "sonner"  // ✅ Changed to Sonner
 import { Badge } from "@/components/ui/badge"
 
 export default function MenuItemsPage() {
@@ -34,15 +32,10 @@ export default function MenuItemsPage() {
     fetchMenuItems()
   }, [])
 
-  useEffect(() => {
-    fetchMenuItems()
-  }, [selectedCategory, searchQuery, showAvailableOnly])
-
-  const fetchCategories = async () => {
+  async function fetchCategories() {
     try {
-      const response = await fetch("/api/categories?activeOnly=true")
-      const data = await response.json()
-
+      const res = await fetch("/api/categories")
+      const data = await res.json()
       if (data.success) {
         setCategories(data.data)
       }
@@ -51,127 +44,112 @@ export default function MenuItemsPage() {
     }
   }
 
-  const fetchMenuItems = async () => {
+  async function fetchMenuItems() {
     try {
       setIsLoading(true)
-      const params = new URLSearchParams()
-
-      if (selectedCategory && selectedCategory !== "all") {
-        params.append("categoryId", selectedCategory)
-      }
-
-      if (searchQuery) {
-        params.append("search", searchQuery)
-      }
-
-      if (showAvailableOnly) {
-        params.append("availableOnly", "true")
-      }
-
-      const response = await fetch(`/api/menu?${params.toString()}`)
-      const data = await response.json()
-
+      const res = await fetch("/api/menu")
+      const data = await res.json()
       if (data.success) {
         setMenuItems(data.data)
       }
     } catch (error) {
-      toast.error("Failed to fetch menu items")
+      console.error("Error fetching menu items:", error)
+      toast.error("Failed to load menu items")  // ✅ Sonner
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleCreate = async (data: any) => {
+  async function handleSubmit(formData: any) {
+    setIsSubmitting(true)
     try {
-      setIsSubmitting(true)
-      const response = await fetch("/api/menu", {
-        method: "POST",
+      const url = editingItem ? `/api/menu/${editingItem.id}` : "/api/menu"
+      const method = editingItem ? "PUT" : "POST"
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(formData),
       })
 
-      const result = await response.json()
+      const data = await res.json()
 
-      if (result.success) {
-        toast.success("Menu item created successfully")
-        setIsFormOpen(false)
-        fetchMenuItems()
-      } else {
-        toast.error(result.error || "Failed to create menu item")
-      }
-    } catch (error) {
-      toast.error("Failed to create menu item")
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleEdit = async (data: any) => {
-    try {
-      setIsSubmitting(true)
-      const response = await fetch(`/api/menu/${editingItem.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      })
-
-      const result = await response.json()
-
-      if (result.success) {
-        toast.success("Menu item updated successfully")
+      if (data.success) {
+        toast.success(
+          editingItem
+            ? "Menu item updated successfully"
+            : "Menu item created successfully"
+        )  // ✅ Sonner
         setIsFormOpen(false)
         setEditingItem(null)
         fetchMenuItems()
       } else {
-        toast.error(result.error || "Failed to update menu item")
+        toast.error(data.error || "Failed to save menu item")  // ✅ Sonner
       }
     } catch (error) {
-      toast.error("Failed to update menu item")
+      toast.error("An error occurred")  // ✅ Sonner
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this menu item?")) return
+  async function handleDelete(id: string) {
+    if (!confirm("Are you sure you want to delete this menu item?")) {
+      return
+    }
 
     try {
-      const response = await fetch(`/api/menu/${id}`, {
+      const res = await fetch(`/api/menu/${id}`, {
         method: "DELETE",
       })
 
-      const result = await response.json()
+      const data = await res.json()
 
-      if (result.success) {
-        toast.success("Menu item deleted successfully")
+      if (data.success) {
+        toast.success("Menu item deleted successfully")  // ✅ Sonner
         fetchMenuItems()
       } else {
-        toast.error(result.error || "Failed to delete menu item")
+        toast.error(data.error || "Failed to delete menu item")  // ✅ Sonner
       }
     } catch (error) {
-      toast.error("Failed to delete menu item")
+      toast.error("Failed to delete menu item")  // ✅ Sonner
     }
   }
 
-  const handleToggleAvailable = async (id: string, isAvailable: boolean) => {
-    try {
-      const response = await fetch(`/api/menu/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isAvailable }),
-      })
+  function handleEdit(item: any) {
+    setEditingItem(item)
+    setIsFormOpen(true)
+  }
 
-      const result = await response.json()
+  function handleCreate() {
+    setEditingItem(null)
+    setIsFormOpen(true)
+  }
 
-      if (result.success) {
-        toast.success(
-          `Menu item ${isAvailable ? "marked available" : "marked unavailable"}`
-        )
-        fetchMenuItems()
-      }
-    } catch (error) {
-      toast.error("Failed to update menu item")
-    }
+  // Filter menu items
+  const filteredMenuItems = menuItems.filter((item) => {
+    // Search filter
+    const matchesSearch =
+      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.description &&
+        item.description.toLowerCase().includes(searchQuery.toLowerCase()))
+
+    // Category filter
+    const matchesCategory =
+      selectedCategory === "all" || item.categoryId === selectedCategory
+
+    // Available filter
+    const matchesAvailable = !showAvailableOnly || item.isAvailable
+
+    return matchesSearch && matchesCategory && matchesAvailable
+  })
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
   }
 
   return (
@@ -180,17 +158,18 @@ export default function MenuItemsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Menu Items</h1>
-          <p className="text-gray-500">Manage your restaurant menu</p>
+          <p className="text-gray-600 mt-1">
+            Manage your restaurant menu items
+          </p>
         </div>
-        <Button onClick={() => setIsFormOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Item
+        <Button onClick={handleCreate}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Menu Item
         </Button>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        {/* Search */}
+      <div className="flex flex-col md:flex-row gap-4">
         <div className="flex-1">
           <SearchBar
             value={searchQuery}
@@ -199,10 +178,8 @@ export default function MenuItemsPage() {
           />
         </div>
 
-        {/* Category Filter */}
         <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="w-full sm:w-[200px]">
-            <Filter className="mr-2 h-4 w-4" />
+          <SelectTrigger className="w-full md:w-[200px]">
             <SelectValue placeholder="All Categories" />
           </SelectTrigger>
           <SelectContent>
@@ -215,65 +192,56 @@ export default function MenuItemsPage() {
           </SelectContent>
         </Select>
 
-        {/* Available Only Toggle */}
         <Button
           variant={showAvailableOnly ? "default" : "outline"}
           onClick={() => setShowAvailableOnly(!showAvailableOnly)}
         >
-          {showAvailableOnly ? "Available Only" : "All Items"}
+          {showAvailableOnly ? "Show All" : "Available Only"}
         </Button>
       </div>
 
       {/* Stats */}
       <div className="flex gap-4">
-        <Badge variant="secondary" className="text-sm">
-          Total: {menuItems.length} items
+        <Badge variant="secondary">
+          Total: {filteredMenuItems.length}
         </Badge>
-        <Badge variant="secondary" className="text-sm">
-          Available: {menuItems.filter((item) => item.isAvailable).length}
-        </Badge>
-        <Badge variant="secondary" className="text-sm">
-          Unavailable: {menuItems.filter((item) => !item.isAvailable).length}
+        <Badge variant="secondary">
+          Available:{" "}
+          {filteredMenuItems.filter((item) => item.isAvailable).length}
         </Badge>
       </div>
 
       {/* Menu Items Grid */}
-      {isLoading ? (
-        <LoadingSpinner />
-      ) : menuItems.length === 0 ? (
-        <EmptyState
-          title="No menu items found"
-          description={
-            searchQuery || selectedCategory !== "all"
-              ? "Try adjusting your filters"
-              : "Get started by adding your first menu item"
-          }
-        />
+      {filteredMenuItems.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-gray-500">
+            {searchQuery || selectedCategory !== "all" || showAvailableOnly
+              ? "No menu items found matching your filters"
+              : "No menu items yet. Create your first menu item!"}
+          </p>
+        </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {menuItems.map((item) => (
+          {filteredMenuItems.map((item) => (
             <MenuItemCard
               key={item.id}
-              menuItem={item}
-              onEdit={(item) => {
-                setEditingItem(item)
-                setIsFormOpen(true)
-              }}
+              item={item}
+              onEdit={handleEdit}
               onDelete={handleDelete}
-              onToggleAvailable={handleToggleAvailable}
+              onRefresh={fetchMenuItems}
             />
           ))}
         </div>
       )}
 
-      {/* Menu Item Form Dialog */}
+      {/* Form Dialog */}
       <MenuItemForm
         isOpen={isFormOpen}
         onClose={() => {
           setIsFormOpen(false)
           setEditingItem(null)
         }}
-        onSubmit={editingItem ? handleEdit : handleCreate}
+        onSubmit={handleSubmit}
         categories={categories}
         initialData={editingItem}
         isLoading={isSubmitting}
