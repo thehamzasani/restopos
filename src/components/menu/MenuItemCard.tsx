@@ -20,13 +20,11 @@ import {
   Trash2,
   Eye,
   EyeOff,
-  // ✅ NEW: Import icon
   ChefHat,
+  UtensilsCrossed,  // ✅ Beautiful food icon
 } from "lucide-react"
-import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import Image from "next/image"
-// ✅ NEW: Import IngredientManager
 import { IngredientManager } from "./IngredientManager"
 
 interface MenuItemCardProps {
@@ -42,10 +40,7 @@ export function MenuItemCard({
   onDelete,
   onRefresh,
 }: MenuItemCardProps) {
-  const router = useRouter()
-  // const { toast } = useToast()
   const [toggling, setToggling] = useState(false)
-  // ✅ NEW: State for ingredient manager
   const [showIngredients, setShowIngredients] = useState(false)
 
   const toggleAvailability = async () => {
@@ -63,8 +58,9 @@ export function MenuItemCard({
       const data = await res.json()
 
       if (data.success) {
-        
-        toast.success(`${item.name} is now ${!item.isAvailable ? "available" : "unavailable"}`)
+        toast.success(
+          `${item.name} is now ${!item.isAvailable ? "available" : "unavailable"}`
+        )
         onRefresh?.()
       } else {
         toast.error(data.error || "Failed to update item")
@@ -78,32 +74,50 @@ export function MenuItemCard({
 
   return (
     <>
-      <Card className="hover:shadow-lg transition-shadow">
-        <CardContent className="p-4">
-          {/* Image */}
-          <div className="relative w-full h-48 mb-4 rounded-lg overflow-hidden bg-gray-100">
-            {item.image ? (
-              <Image
-                src={item.image}
-                alt={item.name}
-                fill
-                className="object-cover"
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full text-gray-400">
-                No Image
-              </div>
-            )}
+      <Card className="hover:shadow-lg transition-shadow overflow-hidden">
+        {/* Image Section - Smaller */}
+        <div className="relative w-full h-32 bg-gradient-to-br from-blue-50 to-indigo-100">
+          {item.image ? (
+            <Image
+              src={item.image}
+              alt={item.name}
+              fill
+              className="object-cover"
+            />
+          ) : (
+            // ✅ Beautiful icon when no image
+            <div className="flex items-center justify-center h-full">
+              <UtensilsCrossed className="h-12 w-12 text-blue-400" strokeWidth={1.5} />
+            </div>
+          )}
+          
+          {/* Availability Badge on Image */}
+          <div className="absolute top-2 right-2">
+            <Badge 
+              variant={item.isAvailable ? "default" : "secondary"}
+              className="text-xs"
+            >
+              {item.isAvailable ? "Available" : "Unavailable"}
+            </Badge>
           </div>
+        </div>
 
-          {/* Title & Category */}
+        {/* Content Section - Compact */}
+        <CardContent className="p-3">
           <div className="space-y-2">
-            <div className="flex items-start justify-between">
-              <h3 className="font-semibold text-lg">{item.name}</h3>
+            {/* Title & Menu */}
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-base truncate">{item.name}</h3>
+                <Badge variant="outline" className="mt-1 text-xs">
+                  {item.category.name}
+                </Badge>
+              </div>
+              
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreVertical className="h-4 w-4" />
+                  <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0">
+                    <MoreVertical className="h-3.5 w-3.5" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -111,7 +125,6 @@ export function MenuItemCard({
                     <Edit className="mr-2 h-4 w-4" />
                     Edit
                   </DropdownMenuItem>
-                  {/* ✅ NEW: Manage Ingredients option */}
                   <DropdownMenuItem onClick={() => setShowIngredients(true)}>
                     <ChefHat className="mr-2 h-4 w-4" />
                     Manage Ingredients
@@ -144,43 +157,43 @@ export function MenuItemCard({
               </DropdownMenu>
             </div>
 
-            <Badge variant="outline">{item.category.name}</Badge>
-
+            {/* Description - 2 lines max */}
             {item.description && (
-              <p className="text-sm text-gray-600 line-clamp-2">
+              <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">
                 {item.description}
               </p>
             )}
 
-            {/* ✅ NEW: Show ingredient count if any */}
-            {item._count?.ingredients && item._count.ingredients > 0 && (
-              <div className="flex items-center gap-1 text-sm text-gray-500">
-                <ChefHat className="h-3 w-3" />
-                <span>{item._count.ingredients} ingredients linked</span>
-              </div>
-            )}
+            {/* Metadata */}
+            <div className="flex items-center justify-between text-xs text-gray-500">
+              {/* Ingredients count */}
+              {item._count?.ingredients && item._count.ingredients > 0 ? (
+                <div className="flex items-center gap-1">
+                  <ChefHat className="h-3 w-3" />
+                  <span>{item._count.ingredients} ingredients</span>
+                </div>
+              ) : (
+                <div />
+              )}
+
+              {/* Prep time */}
+              {item.preparationTime && (
+                <span>⏱️ {item.preparationTime} min</span>
+              )}
+            </div>
           </div>
         </CardContent>
 
-        <CardFooter className="p-4 pt-0 flex items-center justify-between">
-          <div>
-            <p className="text-2xl font-bold text-blue-600">
+        {/* Footer - Price */}
+        <CardFooter className="p-3 pt-0">
+          <div className="w-full flex items-center justify-between">
+            <p className="text-xl font-bold text-blue-600">
               ${Number(item.price).toFixed(2)}
             </p>
-            {item.preparationTime && (
-              <p className="text-xs text-gray-500">
-                {item.preparationTime} min prep
-              </p>
-            )}
           </div>
-
-          <Badge variant={item.isAvailable ? "default" : "secondary"}>
-            {item.isAvailable ? "Available" : "Unavailable"}
-          </Badge>
         </CardFooter>
       </Card>
 
-      {/* ✅ NEW: Ingredient Manager Dialog */}
       <IngredientManager
         menuItemId={item.id}
         menuItemName={item.name}

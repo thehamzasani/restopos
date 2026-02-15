@@ -221,7 +221,8 @@ export default function MenuItemsPage() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {/* ✅ Changed to show 4-5 cards per row */}
           {filteredMenuItems.map((item) => (
             <MenuItemCard
               key={item.id}
