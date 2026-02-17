@@ -12,7 +12,7 @@ import { useState } from "react"
 import { CheckoutModal } from "./CheckoutModal"
 
 export function Cart() {
-  const { cart, updateQuantity, updateItemNotes, removeItem } = useCart()
+  const { cart, taxRate, updateQuantity, updateItemNotes, removeItem } = useCart()
   const [showCheckout, setShowCheckout] = useState(false)
 
   const isEmpty = cart.items.length === 0
@@ -91,6 +91,7 @@ export function Cart() {
           <>
             <Separator />
             <CardFooter className="flex flex-col gap-3 p-4">
+
               {/* Subtotal */}
               <div className="flex justify-between text-sm w-full">
                 <span className="text-gray-600">Subtotal</span>
@@ -99,9 +100,9 @@ export function Cart() {
                 </span>
               </div>
 
-              {/* Tax */}
+              {/* Tax - shows actual % from settings */}
               <div className="flex justify-between text-sm w-full">
-                <span className="text-gray-600">Tax (10%)</span>
+                <span className="text-gray-600">Tax ({taxRate}%)</span>
                 <span className="font-medium">${cart.tax.toFixed(2)}</span>
               </div>
 
@@ -118,9 +119,11 @@ export function Cart() {
                 className="w-full"
                 size="lg"
                 onClick={() => setShowCheckout(true)}
+                disabled={isEmpty}
               >
                 Proceed to Checkout
               </Button>
+
             </CardFooter>
           </>
         )}

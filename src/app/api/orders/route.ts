@@ -1,43 +1,53 @@
 import { NextRequest, NextResponse } from "next/server"
-import  getServerSession  from "next-auth"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { createOrderSchema } from "@/lib/validations/order"
 
-
-// GET /api/orders - Get all orders with filters
-export async function GET(request: Request) {
+// GET /api/orders - Get all orders
+export async function GET(request: NextRequest) {
   try {
+    const session = await auth()
+
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     const status = searchParams.get("status")
     const orderType = searchParams.get("orderType")
+    const tableId = searchParams.get("tableId")
     const paymentStatus = searchParams.get("paymentStatus")
     const search = searchParams.get("search")
     const startDate = searchParams.get("startDate")
     const endDate = searchParams.get("endDate")
-    const limit = parseInt(searchParams.get("limit") || "50")
-    const sortBy = searchParams.get("sortBy") || "createdAt"
-    const sortOrder = searchParams.get("sortOrder") || "desc"
 
     // Build where clause
     const where: any = {}
 
-    // Status filter (can be comma-separated: "PENDING,PREPARING")
-    if (status) {
-      const statuses = status.split(",")
-      where.status = { in: statuses }
+    if (status && status !== "all") {
+      where.status = status
     }
 
-    if (orderType) {
+    if (orderType && orderType !== "all") {
       where.orderType = orderType
     }
 
-    if (paymentStatus) {
+    if (tableId) {
+      where.tableId = tableId
+    }
+
+    if (paymentStatus && paymentStatus !== "all") {
       where.paymentStatus = paymentStatus
     }
 
     if (search) {
-      where.orderNumber = { contains: search, mode: "insensitive" }
+      where.orderNumber = {
+        contains: search,
+        mode: "insensitive",
+      }
     }
 
     if (startDate || endDate) {
@@ -46,49 +56,32 @@ export async function GET(request: Request) {
       if (endDate) where.createdAt.lte = new Date(endDate)
     }
 
-    // Fetch orders with all relations INCLUDING menuItem
     const orders = await prisma.order.findMany({
       where,
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
         table: {
-          select: {
-            id: true,
-            number: true,
-            capacity: true,
-          },
+          select: { id: true, number: true },
+        },
+        user: {
+          select: { id: true, name: true },
         },
         orderItems: {
-          include: {
-            menuItem: {  // ✅ ADD THIS - Include menuItem relation
-              select: {
-                id: true,
-                name: true,
-                image: true,
-                price: true,
-              },
-            },
-          },
+          select: { id: true, quantity: true },
         },
-        transaction: true,
       },
-      orderBy: {
-        [sortBy]: sortOrder,
-      },
-      take: limit,
+      orderBy: { createdAt: "desc" },
     })
 
-    return NextResponse.json({
-      success: true,
-      data: orders,
-      count: orders.length,
-    })
+    // Serialize Decimal fields to numbers
+    const serializedOrders = orders.map((order) => ({
+      ...order,
+      subtotal: Number(order.subtotal),
+      tax: Number(order.tax),
+      discount: Number(order.discount),
+      total: Number(order.total),
+    }))
+
+    return NextResponse.json({ success: true, data: serializedOrders })
   } catch (error) {
     console.error("Error fetching orders:", error)
     return NextResponse.json(
@@ -97,7 +90,8 @@ export async function GET(request: Request) {
     )
   }
 }
-// POST /api/orders - Create new order OR add to existing order
+
+// POST /api/orders - Create new order
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
@@ -112,86 +106,76 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = createOrderSchema.parse(body)
 
-    // Check if table already has an active order
-    if (validatedData.tableId) {
+    // ✅ Get tax rate from settings (not hardcoded!)
+    const settings = await prisma.settings.findFirst()
+    const taxRate = Number(settings?.taxRate ?? 10) // fallback to 10 if no settings
+
+    // Calculate subtotal from items
+    const subtotal = validatedData.items.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    )
+
+    // ✅ Use tax rate from settings
+    const tax = (subtotal * taxRate) / 100
+    const total = subtotal + tax - validatedData.discount
+
+    // Generate order number
+    const orderCount = await prisma.order.count()
+    const orderNumber = `ORD${String(orderCount + 1).padStart(6, "0")}`
+
+    // Check if table already has an active order (dine-in)
+    if (validatedData.orderType === "DINE_IN" && validatedData.tableId) {
       const existingOrder = await prisma.order.findFirst({
         where: {
           tableId: validatedData.tableId,
-          status: {
-            in: ["PENDING", "PREPARING", "READY"],
-          },
-        },
-        include: {
-          orderItems: true,
+          status: { in: ["PENDING", "PREPARING", "READY"] },
         },
       })
 
-      // If table has active order, add items to existing order
       if (existingOrder) {
-        // Calculate new items total
-        const newItemsSubtotal = validatedData.items.reduce(
-          (sum, item) => sum + item.price * item.quantity,
-          0
-        )
-        const newItemsTax = newItemsSubtotal * 0.1
+        // Add items to existing order
+        const existingSubtotal = Number(existingOrder.subtotal)
+        const newSubtotal = existingSubtotal + subtotal
+        // ✅ Use tax rate from settings for existing order update too
+        const newTax = (newSubtotal * taxRate) / 100
+        const newTotal = newSubtotal + newTax - validatedData.discount
 
-        // ✅ FIXED: Convert Decimal to number before adding
-        const currentSubtotal = Number(existingOrder.subtotal)
-        const currentTax = Number(existingOrder.tax)
-        const currentTotal = Number(existingOrder.total)
-
-        const updatedSubtotal = currentSubtotal + newItemsSubtotal
-        const updatedTax = currentTax + newItemsTax
-        const updatedTotal = currentTotal + newItemsSubtotal + newItemsTax
-
-        // Update existing order
         const updatedOrder = await prisma.order.update({
           where: { id: existingOrder.id },
           data: {
-            subtotal: updatedSubtotal,
-            tax: updatedTax,
-            total: updatedTotal,
-            // Add new items
+            subtotal: newSubtotal,
+            tax: newTax,
+            total: newTotal,
             orderItems: {
-              create: validatedData.items.map((item) => ({
-                menuItemId: item.menuItemId,
-                quantity: item.quantity,
-                price: item.price,
-                subtotal: item.price * item.quantity,
-                notes: item.notes,
-              })),
+              createMany: {
+                data: validatedData.items.map((item) => ({
+                  menuItemId: item.menuItemId,
+                  quantity: item.quantity,
+                  price: item.price,
+                  subtotal: item.price * item.quantity,
+                  notes: item.notes,
+                })),
+              },
             },
           },
           include: {
+            orderItems: { include: { menuItem: true } },
             table: true,
-            orderItems: {
-              include: {
-                menuItem: true,
-              },
-            },
+            user: true,
           },
         })
 
         return NextResponse.json({
           success: true,
           data: updatedOrder,
-          message: `Items added to existing order #${existingOrder.orderNumber}`,
           isUpdated: true,
+          message: `Items added to existing order ${existingOrder.orderNumber}`,
         })
       }
     }
 
-    // No existing order, create new order
-    const orderCount = await prisma.order.count()
-    const orderNumber = `ORD${String(orderCount + 1).padStart(6, "0")}`
-
-    const subtotal = validatedData.items.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    )
-    const tax = subtotal * 0.1
-    const total = subtotal + tax - validatedData.discount
-
+    // Create new order
     const order = await prisma.order.create({
       data: {
         orderNumber,
@@ -204,31 +188,30 @@ export async function POST(request: NextRequest) {
         tax,
         discount: validatedData.discount,
         total,
+        notes: validatedData.notes,
         status: "PENDING",
         paymentMethod: validatedData.paymentMethod,
         paymentStatus: validatedData.paymentMethod ? "PAID" : "PENDING",
-        notes: validatedData.notes,
         orderItems: {
-          create: validatedData.items.map((item) => ({
-            menuItemId: item.menuItemId,
-            quantity: item.quantity,
-            price: item.price,
-            subtotal: item.price * item.quantity,
-            notes: item.notes,
-          })),
-        },
-      },
-      include: {
-        table: true,
-        orderItems: {
-          include: {
-            menuItem: true,
+          createMany: {
+            data: validatedData.items.map((item) => ({
+              menuItemId: item.menuItemId,
+              quantity: item.quantity,
+              price: item.price,
+              subtotal: item.price * item.quantity,
+              notes: item.notes,
+            })),
           },
         },
       },
+      include: {
+        orderItems: { include: { menuItem: true } },
+        table: true,
+        user: true,
+      },
     })
 
-    // Set table status to OCCUPIED
+    // Update table status to OCCUPIED for dine-in
     if (validatedData.tableId) {
       await prisma.table.update({
         where: { id: validatedData.tableId },
@@ -236,24 +219,11 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({
-      success: true,
-      data: order,
-      message: "Order created successfully",
-      isUpdated: false,
-    })
+    return NextResponse.json({ success: true, data: order })
   } catch (error: any) {
     console.error("Error creating order:", error)
-
-    if (error.name === "ZodError") {
-      return NextResponse.json(
-        { success: false, error: "Validation error", details: error.errors },
-        { status: 400 }
-      )
-    }
-
     return NextResponse.json(
-      { success: false, error: "Failed to create order" },
+      { success: false, error: error.message || "Failed to create order" },
       { status: 500 }
     )
   }
