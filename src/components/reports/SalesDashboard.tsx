@@ -309,20 +309,25 @@ export default function SalesDashboard() {
       {/* Charts Grid */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Revenue Trend Chart */}
-        {data.revenueTrend.length >= 1 && (
+        {period !== "today" && period !== "yesterday" &&data.revenueTrend.length >= 1 && (
           <Card className="md:col-span-2">
             <CardHeader>
               <CardTitle>Revenue Trend - {periodLabels[period]}</CardTitle>
             </CardHeader>
             <CardContent>
-              <RevenueChart data={data.revenueTrend.map(item => ({
-                ...item,
-                date: item.date,
-                total: Number(item.total),
-                dineIn: item.dine_in,
-                takeaway: Number(item.takeaway),
-                delivery: Number(item.delivery)
-              }))} />
+              {data.revenueTrend.length === 1 ? (
+                <div className="h-[100px] flex items-center justify-center text-muted-foreground text-sm">
+                  Only one day of data available. Add more orders across different days to see a trend.
+                </div>
+              ) : (
+                <RevenueChart data={data.revenueTrend.map(item => ({
+                  ...item,
+                  dineIn: item.dine_in,
+                  total: Number(item.total),
+                  takeaway: Number(item.takeaway),
+                  delivery: Number(item.delivery),
+                }))} />
+              )}
             </CardContent>
           </Card>
         )}

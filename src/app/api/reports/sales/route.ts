@@ -1,10 +1,8 @@
 // src/app/api/reports/sales/route.ts
 import { NextResponse } from "next/server"
-
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
-// GET /api/reports/sales - Get sales analytics
 export async function GET(request: Request) {
   try {
     const session = await auth()
@@ -16,13 +14,15 @@ export async function GET(request: Request) {
     const period = searchParams.get("period") ?? "today"
     const startDateParam = searchParams.get("startDate")
     const endDateParam = searchParams.get("endDate")
-    const orderType = searchParams.get("orderType") // "DINE_IN" | "TAKEAWAY" | "DELIVERY" | null
+    const orderType = searchParams.get("orderType")
+
+    // Helper to format date as YYYY-MM-DD without timezone shift
+    const toDateKey = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
     // Build date range
     let startDate: Date
-    let endDate: Date = new Date()
-    endDate.setHours(23, 59, 59, 999)
-
+    let endDate: Date
 
     if (startDateParam && endDateParam) {
       startDate = new Date(startDateParam)
@@ -49,17 +49,17 @@ export async function GET(request: Request) {
           break
         case "week":
           startDate = new Date(now)
-          startDate.setDate(now.getDate() - 7)
+          startDate.setDate(now.getDate() - 6)  // -6 so today is included = 7 days
           startDate.setHours(0, 0, 0, 0)
           break
         case "month":
           startDate = new Date(now)
-          startDate.setDate(now.getDate() - 30)
+          startDate.setDate(now.getDate() - 29) // -29 so today is included = 30 days
           startDate.setHours(0, 0, 0, 0)
           break
         case "3months":
           startDate = new Date(now)
-          startDate.setDate(now.getDate() - 90)
+          startDate.setDate(now.getDate() - 89) // -89 so today is included = 90 days
           startDate.setHours(0, 0, 0, 0)
           break
         case "year":
@@ -70,6 +70,7 @@ export async function GET(request: Request) {
           startDate.setHours(0, 0, 0, 0)
       }
     }
+
     const baseWhere: any = {
       createdAt: { gte: startDate, lte: endDate },
       status: { not: "CANCELLED" },
@@ -79,7 +80,7 @@ export async function GET(request: Request) {
       baseWhere.orderType = orderType
     }
 
-    // Fetch all completed/paid orders for the period
+    // Fetch all orders for the period
     const orders = await prisma.order.findMany({
       where: baseWhere,
       select: {
@@ -119,7 +120,7 @@ export async function GET(request: Request) {
       {} as Record<string, number>
     )
 
-    // Revenue trend by day (for charts)
+    // Revenue trend by day (raw SQL)
     const revenueTrend = await prisma.$queryRaw`
       SELECT
         DATE("createdAt") as date,
@@ -128,22 +129,55 @@ export async function GET(request: Request) {
         SUM(CASE WHEN "orderType" = 'DELIVERY' THEN total ELSE 0 END) as delivery,
         SUM(total) as total,
         COUNT(*) as count
-      FROM "Order"
+      FROM "public"."Order"
       WHERE "createdAt" >= ${startDate}
         AND "createdAt" <= ${endDate}
-        AND status != 'CANCELLED'
+        AND status::text != 'CANCELLED'
       GROUP BY DATE("createdAt")
       ORDER BY date ASC
     `
 
-    const serializedTrend = (revenueTrend as any[]).map(row => ({
-      date: row.date,
-      dine_in: Number(row.dine_in),
-      takeaway: Number(row.takeaway),
-      delivery: Number(row.delivery),
-      total: Number(row.total),
-      count: Number(row.count),
+    // Generate ALL dates in range (local time, no timezone shift)
+    const allDates: string[] = []
+    const current = new Date(startDate)
+    current.setHours(0, 0, 0, 0)
+    const endCopy = new Date(endDate)
+    endCopy.setHours(0, 0, 0, 0)
+
+    while (current <= endCopy) {
+      allDates.push(toDateKey(current))
+      current.setDate(current.getDate() + 1)
+    }
+
+    // Map raw trend rows by date (fix timezone shift with local date formatting)
+    const trendMap = new Map(
+      (revenueTrend as any[]).map(row => {
+        const d = new Date(row.date)
+        // Use UTC date parts to avoid timezone shift from PostgreSQL DATE type
+        const dateKey = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+        return [
+          dateKey,
+          {
+            dine_in: Number(row.dine_in),
+            takeaway: Number(row.takeaway),
+            delivery: Number(row.delivery),
+            total: Number(row.total),
+            count: Number(row.count),
+          }
+        ]
+      })
+    )
+
+    // Fill all dates with 0 for missing days
+    const serializedTrend = allDates.map(date => ({
+      date,
+      dine_in: trendMap.get(date)?.dine_in ?? 0,
+      takeaway: trendMap.get(date)?.takeaway ?? 0,
+      delivery: trendMap.get(date)?.delivery ?? 0,
+      total: trendMap.get(date)?.total ?? 0,
+      count: trendMap.get(date)?.count ?? 0,
     }))
+
     // Discount analytics
     const totalDiscount = orders.reduce((sum, o) => sum + Number(o.discount), 0)
     const ordersWithDiscount = orders.filter((o) => Number(o.discount) > 0).length
@@ -157,7 +191,6 @@ export async function GET(request: Request) {
           averageOrderValue: totalOrders > 0 ? Math.round((totalRevenue / totalOrders) * 100) / 100 : 0,
           totalDiscount: Math.round(totalDiscount * 100) / 100,
           ordersWithDiscount,
-          // By type
           dineIn: {
             orders: dineInOrders.length,
             revenue: Math.round(sumTotal(dineInOrders) * 100) / 100,

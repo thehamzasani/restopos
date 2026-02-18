@@ -12,20 +12,22 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
-import { 
-  UtensilsCrossed, 
-  Package, 
-  Eye, 
-  Download,
-  ArrowUpDown 
+import {
+  UtensilsCrossed,
+  Package,
+  Bike,
+  Eye,
+  ArrowUpDown
 } from 'lucide-react';
 
 interface Order {
   id: string;
   orderNumber: string;
-  orderType: 'DINE_IN' | 'TAKEAWAY';
-  tableId?: string;
-  customerName?: string;
+  orderType: 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY'; // ✅ added DELIVERY
+  tableId?: string | number | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  deliveryAddress?: string | null;
   total: string;
   paymentMethod: string;
   status: string;
@@ -38,9 +40,9 @@ interface SalesReportTableProps {
   onViewOrder: (orderId: string) => void;
 }
 
-export default function SalesReportTable({ 
-  orders, 
-  onViewOrder 
+export default function SalesReportTable({
+  orders,
+  onViewOrder
 }: SalesReportTableProps) {
   const [sortField, setSortField] = useState<'createdAt' | 'total'>('createdAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -56,7 +58,6 @@ export default function SalesReportTable({
 
   const sortedOrders = [...orders].sort((a, b) => {
     const multiplier = sortDirection === 'asc' ? 1 : -1;
-    
     if (sortField === 'total') {
       return multiplier * (parseFloat(a.total) - parseFloat(b.total));
     } else {
@@ -73,6 +74,51 @@ export default function SalesReportTable({
         <p>No orders found for the selected period</p>
       </div>
     );
+  }
+
+  // ✅ Helper to render order type badge
+  const OrderTypeBadge = ({ orderType }: { orderType: Order['orderType'] }) => {
+    if (orderType === 'DINE_IN') {
+      return (
+        <Badge variant="default" className="bg-blue-600">
+          <UtensilsCrossed className="h-3 w-3 mr-1" />
+          Dine-In
+        </Badge>
+      )
+    }
+    if (orderType === 'TAKEAWAY') {
+      return (
+        <Badge variant="default" className="bg-orange-600">
+          <Package className="h-3 w-3 mr-1" />
+          Takeaway
+        </Badge>
+      )
+    }
+    // DELIVERY
+    return (
+      <Badge variant="default" className="bg-green-600">
+        <Bike className="h-3 w-3 mr-1" />
+        Delivery
+      </Badge>
+    )
+  }
+
+  // ✅ Helper to render table/customer info based on order type
+  const OrderContext = ({ order }: { order: Order }) => {
+    if (order.orderType === 'DINE_IN') {
+      return <span>Table {order.tableId ?? '-'}</span>
+    }
+    if (order.orderType === 'DELIVERY') {
+      return (
+        <div className="text-xs">
+          <p className="font-medium">{order.customerName || 'Guest'}</p>
+          {order.deliveryAddress && (
+            <p className="text-muted-foreground truncate max-w-[150px]">{order.deliveryAddress}</p>
+          )}
+        </div>
+      )
+    }
+    return <span>{order.customerName || 'Guest'}</span>
   }
 
   return (
@@ -116,22 +162,10 @@ export default function SalesReportTable({
             <TableRow key={order.id}>
               <TableCell className="font-medium">{order.orderNumber}</TableCell>
               <TableCell>
-                {order.orderType === 'DINE_IN' ? (
-                  <Badge variant="default" className="bg-blue-600">
-                    <UtensilsCrossed className="h-3 w-3 mr-1" />
-                    Dine-In
-                  </Badge>
-                ) : (
-                  <Badge variant="default" className="bg-orange-600">
-                    <Package className="h-3 w-3 mr-1" />
-                    Takeaway
-                  </Badge>
-                )}
+                <OrderTypeBadge orderType={order.orderType} />
               </TableCell>
               <TableCell>
-                {order.orderType === 'DINE_IN' 
-                  ? `Table ${order.tableId}` 
-                  : order.customerName || 'Guest'}
+                <OrderContext order={order} />
               </TableCell>
               <TableCell>{order.itemCount} items</TableCell>
               <TableCell className="font-semibold">${order.total}</TableCell>
@@ -139,7 +173,7 @@ export default function SalesReportTable({
                 <Badge variant="outline">{order.paymentMethod}</Badge>
               </TableCell>
               <TableCell>
-                <Badge 
+                <Badge
                   variant={order.status === 'COMPLETED' ? 'default' : 'secondary'}
                 >
                   {order.status}

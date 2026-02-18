@@ -1,64 +1,47 @@
-import { NextRequest, NextResponse } from 'next/server';
-// import { getServerSession } from 'next-auth';
-import { auth } from '@/lib/auth';
-import prisma from '@/lib/prisma';
-import { 
-  startOfDay, 
-  endOfDay, 
-  subDays, 
-  startOfYesterday, 
-  endOfYesterday,
-  parseISO,
-  format
-} from 'date-fns';
+// src/app/api/reports/sales/detailed/route.ts
+import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import { startOfDay, endOfDay, parseISO } from 'date-fns'
 
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
     if (!session) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { searchParams } = new URL(request.url);
-    const startDateParam = searchParams.get('startDate');
-    const endDateParam = searchParams.get('endDate');
-    const orderType = searchParams.get('orderType');
-    const paymentMethod = searchParams.get('paymentMethod');
-    const status = searchParams.get('status');
+    const { searchParams } = new URL(request.url)
+    const startDateParam = searchParams.get('startDate')
+    const endDateParam = searchParams.get('endDate')
+    const orderType = searchParams.get('orderType')
+    const paymentMethod = searchParams.get('paymentMethod')
+    const status = searchParams.get('status')
 
-    // Use the SAME date calculation logic as main sales API
-    let start: Date;
-    let end: Date;
+    let start: Date
+    let end: Date
 
     if (startDateParam && endDateParam) {
-      start = startOfDay(parseISO(startDateParam));
-      end = endOfDay(parseISO(endDateParam));
+      start = new Date(startDateParam)
+      end = new Date(endDateParam)
     } else {
-      // Default to today
-      start = startOfDay(new Date());
-      end = endOfDay(new Date());
+      start = startOfDay(new Date())
+      end = endOfDay(new Date())
     }
 
-    console.log(`[Detailed Sales] Fetching orders from ${start.toISOString()} to ${end.toISOString()}`);
-
-    // Build filter - MUST match main sales API logic
+    // Build filter
     const where: any = {
-      createdAt: {
-        gte: start,
-        lte: end,
-      },
-      status: status && status !== 'ALL' ? status : 'COMPLETED', // Default to COMPLETED like main API
-    };
+      createdAt: { gte: start, lte: end },
+      status: status && status !== 'ALL' ? status : 'COMPLETED',
+    }
 
+    // ✅ Handle all order types including DELIVERY
     if (orderType && orderType !== 'ALL') {
-      where.orderType = orderType;
+      where.orderType = orderType
     }
 
     if (paymentMethod && paymentMethod !== 'ALL') {
-      where.paymentMethod = paymentMethod;
+      where.paymentMethod = paymentMethod
     }
 
     // Fetch orders with items
@@ -75,18 +58,19 @@ export async function GET(request: NextRequest) {
       orderBy: {
         createdAt: 'desc',
       },
-    });
+    })
 
-    console.log(`[Detailed Sales] Found ${orders.length} orders`);
-
-    // Format response
+    // Format response — include all order type fields
     const formattedOrders = orders.map(order => ({
       id: order.id,
       orderNumber: order.orderNumber,
-      orderType: order.orderType,
-      tableId: order.table?.number,
-      customerName: order.customerName,
-      customerPhone: order.customerPhone,
+      orderType: order.orderType,  // ✅ returns DINE_IN, TAKEAWAY, or DELIVERY
+      tableId: order.table?.number ?? null,
+      customerName: order.customerName ?? null,
+      customerPhone: order.customerPhone ?? null,
+      deliveryAddress: order.deliveryAddress ?? null,  // ✅ added
+      deliveryNote: order.deliveryNote ?? null,         // ✅ added
+      deliveryFee: order.deliveryFee?.toString() ?? '0', // ✅ added
       total: order.total.toString(),
       subtotal: order.subtotal.toString(),
       tax: order.tax.toString(),
@@ -102,13 +86,9 @@ export async function GET(request: NextRequest) {
         price: item.price.toString(),
         subtotal: item.subtotal.toString(),
       })),
-    }));
+    }))
 
-    // Calculate totals (same logic as main API)
-    const totalRevenue = orders.reduce((sum, order) => sum + Number(order.total), 0);
-    const totalOrders = orders.length;
-
-    console.log(`[Detailed Sales] Total Revenue: $${totalRevenue.toFixed(2)}, Orders: ${totalOrders}`);
+    const totalRevenue = orders.reduce((sum, order) => sum + Number(order.total), 0)
 
     return NextResponse.json({
       success: true,
@@ -118,12 +98,12 @@ export async function GET(request: NextRequest) {
         totalRevenue: totalRevenue.toFixed(2),
         summary: {
           totalRevenue: totalRevenue.toFixed(2),
-          totalOrders: totalOrders,
-        }
+          totalOrders: orders.length,
+        },
       },
-    });
+    })
   } catch (error) {
-    console.error('[Detailed Sales] Error:', error);
+    console.error('[Detailed Sales] Error:', error)
     return NextResponse.json(
       {
         success: false,
@@ -131,6 +111,6 @@ export async function GET(request: NextRequest) {
         details: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
-    );
+    )
   }
 }
