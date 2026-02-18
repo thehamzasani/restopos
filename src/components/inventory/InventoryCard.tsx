@@ -233,7 +233,7 @@ export function InventoryCard({ item, onEdit, onUpdate }: InventoryCardProps) {
             {item.costPerUnit && (
               <div>
                 <p className="text-gray-500">Cost/Unit</p>
-                <p className="font-medium">${item.costPerUnit.toFixed(2)}</p>
+                <p className="font-medium">Rs {item.costPerUnit.toFixed(2)}</p>
               </div>
             )}
             {item.supplier && (

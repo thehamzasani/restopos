@@ -8,7 +8,8 @@ import { OrderTypeBadge } from "./OrderTypeBadge"
 import { Eye, Clock, DollarSign, User } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { formatDistanceToNow } from "date-fns"
-
+import type { OrderType } from "@/types"
+import { OrderStatus } from "@prisma/client"
 interface Order {
   id: string
   orderNumber: string
@@ -51,8 +52,8 @@ export function OrderCard({ order }: OrderCardProps) {
             <div className="space-y-1">
               <h3 className="font-semibold text-lg">#{order.orderNumber}</h3>
               <div className="flex flex-wrap items-center gap-2">
-                <OrderTypeBadge orderType={order.orderType} size="sm" />
-                <OrderStatusBadge status={order.status} size="sm" />
+                <OrderTypeBadge type={order.orderType as OrderType} size="sm" />
+               <OrderStatusBadge status={order.status as OrderStatus} size="sm" />
                 {order.paymentStatus === "PAID" && (
                   <Badge className="bg-green-50 text-green-700 border-green-200 text-xs">
                     Paid
@@ -99,7 +100,7 @@ export function OrderCard({ order }: OrderCardProps) {
             <div className="flex items-center gap-2">
               <DollarSign className="h-4 w-4 text-primary" />
               <span className="font-semibold text-base text-primary">
-                ${Number(order.total).toFixed(2)}
+                Rs {Number(order.total).toFixed(2)}
               </span>
             </div>
           </div>

@@ -1,7 +1,7 @@
 "use client"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Printer, Loader2, X } from "lucide-react"
+import { Printer, Loader2 } from "lucide-react"
 import Receipt from "@/components/pos/Receipt"
 
 interface OrderReceiptButtonProps {
@@ -11,17 +11,27 @@ interface OrderReceiptButtonProps {
 export function OrderReceiptButton({ orderId }: OrderReceiptButtonProps) {
   const [showReceipt, setShowReceipt] = useState(false)
   const [order, setOrder] = useState(null)
+  const [settings, setSettings] = useState(null)
   const [loading, setLoading] = useState(false)
 
   const handlePrint = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/orders/${orderId}`)  // ✅ fixed backtick
-      const data = await res.json()
-      setOrder(data.data)
+      // Fetch order and settings in parallel
+      const [orderRes, settingsRes] = await Promise.all([
+        fetch(`/api/orders/${orderId}`),
+        fetch(`/api/settings`),
+      ])
+
+      const orderData = await orderRes.json()
+      const settingsData = await settingsRes.json()
+
+      if (orderData.data) setOrder(orderData.data)
+      if (settingsData.success) setSettings(settingsData.data)
+
       setShowReceipt(true)
     } catch (error) {
-      console.error("Failed to fetch order:", error)
+      console.error("Failed to fetch order or settings:", error)
     } finally {
       setLoading(false)
     }
@@ -35,17 +45,27 @@ export function OrderReceiptButton({ orderId }: OrderReceiptButtonProps) {
         onClick={handlePrint}
         disabled={loading}
       >
-        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+        {loading
+          ? <Loader2 className="h-4 w-4 animate-spin" />
+          : <Printer className="h-4 w-4" />
+        }
         Print Receipt
       </Button>
 
-      {/* ✅ No isOpen prop - just render when order exists */}
       {order && showReceipt && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg max-w-sm w-full max-h-[90vh] overflow-auto p-4">
             <Receipt
               order={order}
-              onClose={() => setShowReceipt(false)}  // ✅ onClose exists in Receipt
+              settings={settings ? {
+                restaurantName: (settings as any).restaurantName,
+                address: (settings as any).address ?? null,
+                phone: (settings as any).phone ?? null,
+                currency: (settings as any).currency ?? 'PKR',
+                receiptHeader: (settings as any).receiptHeader ?? null,
+                receiptFooter: (settings as any).receiptFooter ?? null,
+              } : undefined}
+              onClose={() => setShowReceipt(false)}
             />
           </div>
         </div>

@@ -22,8 +22,16 @@ import { toast } from "sonner"
 import { ButtonLoader } from "@/components/shared/LoadingSpinner"
 import { Save } from "lucide-react"
 
+// interface RestaurantSettingsProps {
+//   initialData: RestaurantSettingsInput & { id: string }
+// }
 interface RestaurantSettingsProps {
-  initialData: RestaurantSettingsInput & { id: string }
+  initialData: RestaurantSettingsInput & {
+    id: string
+    taxRate?: number
+    deliveryFee?: number
+    minOrderAmount?: number
+  }
 }
 
 export function RestaurantSettings({ initialData }: RestaurantSettingsProps) {

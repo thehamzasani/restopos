@@ -28,12 +28,15 @@ const DEFAULT_SETTINGS = {
   restaurantName: "RestoPOS Restaurant",
   address: null,
   phone: null,
-  currency: "USD",
+  currency: "PKR",  // ✅ change from USD to PKR
   receiptHeader: null,
   receiptFooter: "Thank you! Please visit again.",
 }
 
-function formatCurrency(amount: number, currency = "USD") {
+function formatCurrency(amount: number, currency = "PKR") {
+  if (currency === "PKR") {
+    return `Rs ${amount.toFixed(2)}`
+  }
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency,

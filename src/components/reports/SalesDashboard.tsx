@@ -233,7 +233,7 @@ export default function SalesDashboard() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${data.summary.totalRevenue}</div>
+            <div className="text-2xl font-bold">Rs {data.summary.totalRevenue}</div>
             <p className="text-xs text-muted-foreground">
               {data.summary.totalOrders} orders • {periodLabels[period]}
             </p>
@@ -246,7 +246,7 @@ export default function SalesDashboard() {
             <UtensilsCrossed className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">${data.summary.dineIn.revenue}</div>
+            <div className="text-2xl font-bold text-blue-600">Rs {data.summary.dineIn.revenue}</div>
             <p className="text-xs text-muted-foreground">
               {data.summary.dineIn.orders} orders
             </p>
@@ -259,7 +259,7 @@ export default function SalesDashboard() {
             <Package className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">${data.summary.takeaway.revenue}</div>
+            <div className="text-2xl font-bold text-orange-600">Rs {data.summary.takeaway.revenue}</div>
             <p className="text-xs text-muted-foreground">
               {data.summary.takeaway.orders} orders
             </p>
@@ -282,9 +282,9 @@ export default function SalesDashboard() {
             <Bike className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">${data.summary.delivery.revenue}</div>
+            <div className="text-2xl font-bold text-green-600">Rs {data.summary.delivery.revenue}</div>
             <p className="text-xs text-muted-foreground">
-              {data.summary.delivery.orders} orders • Fees: ${data.summary.delivery.deliveryFees}
+              {data.summary.delivery.orders} orders • Fees: Rs {data.summary.delivery.deliveryFees}
             </p>
           </CardContent>
         </Card>
@@ -358,7 +358,7 @@ export default function SalesDashboard() {
               {Object.entries(data.paymentBreakdown).map(([method, amount]) => (
                 <div key={method} className="flex justify-between items-center">
                   <span className="text-sm font-medium">{method}</span>
-                  <span className="text-sm font-bold">${Number(amount).toFixed(2)}</span>
+                  <span className="text-sm font-bold">Rs {Number(amount).toFixed(2)}</span>
                 </div>
               ))}
               {Object.keys(data.paymentBreakdown).length === 0 && (

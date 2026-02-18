@@ -168,7 +168,7 @@ export default function SalesReportTable({
                 <OrderContext order={order} />
               </TableCell>
               <TableCell>{order.itemCount} items</TableCell>
-              <TableCell className="font-semibold">${order.total}</TableCell>
+              <TableCell className="font-semibold">Rs {order.total}</TableCell>
               <TableCell>
                 <Badge variant="outline">{order.paymentMethod}</Badge>
               </TableCell>

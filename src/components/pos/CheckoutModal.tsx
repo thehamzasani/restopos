@@ -236,7 +236,7 @@ export function CheckoutModal({ open, onClose, onSuccess }: CheckoutModalProps) 
                     )}
                   </span>
                   <span className="text-gray-900 font-medium shrink-0 ml-2">
-                    ${(item.price * item.quantity).toFixed(2)}
+                    Rs {(item.price * item.quantity).toFixed(2)}
                   </span>
                 </div>
               ))}
@@ -249,32 +249,32 @@ export function CheckoutModal({ open, onClose, onSuccess }: CheckoutModalProps) 
           <div className="space-y-1.5">
             <div className="flex justify-between text-sm text-gray-600">
               <span>Subtotal</span>
-              <span>${cart.subtotal.toFixed(2)}</span>
+              <span>Rs {cart.subtotal.toFixed(2)}</span>
             </div>
             {cart.discount > 0 && (
               <div className="flex justify-between text-sm text-purple-600">
                 <span className="flex items-center gap-1">
                   <Tag className="h-3 w-3" /> Discount
                 </span>
-                <span>-${cart.discount.toFixed(2)}</span>
+                <span>-Rs {cart.discount.toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between text-sm text-gray-600">
               <span>Tax</span>
-              <span>${cart.tax.toFixed(2)}</span>
+              <span>Rs {cart.tax.toFixed(2)}</span>
             </div>
             {setup?.orderType === "DELIVERY" && (
               <div className="flex justify-between text-sm text-gray-600">
                 <span className="flex items-center gap-1">
                   <Truck className="h-3 w-3" /> Delivery Fee
                 </span>
-                <span>${cart.deliveryFee.toFixed(2)}</span>
+                <span>Rs {cart.deliveryFee.toFixed(2)}</span>
               </div>
             )}
             <Separator />
             <div className="flex justify-between font-bold text-base">
               <span>Total</span>
-              <span className="text-blue-600">${cart.total.toFixed(2)}</span>
+              <span className="text-blue-600">Rs {cart.total.toFixed(2)}</span>
             </div>
           </div>
 
@@ -316,7 +316,7 @@ export function CheckoutModal({ open, onClose, onSuccess }: CheckoutModalProps) 
                   Placing...
                 </>
               ) : (
-                `Place Order — $${cart.total.toFixed(2)}`
+                `Place Order — Rs ${cart.total.toFixed(2)}`
               )}
             </Button>
           </div>

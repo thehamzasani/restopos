@@ -125,7 +125,7 @@ function DiscountPopover() {
           }`}
         >
           <Tag className="h-3 w-3" />
-          {hasDiscount ? `Discount: -$${cart.discount.toFixed(2)}` : "Add Discount"}
+          {hasDiscount ? `Discount: -Rs ${cart.discount.toFixed(2)}` : "Add Discount"}
         </Button>
       </PopoverTrigger>
 
@@ -217,7 +217,7 @@ function DiscountPopover() {
 
           {value && mode === "PERCENT" && !isNaN(parseFloat(value)) && (
             <p className="text-xs text-gray-500 text-center">
-              ≈ -${((cart.subtotal * parseFloat(value)) / 100).toFixed(2)} off
+              ≈ -Rs {((cart.subtotal * parseFloat(value)) / 100).toFixed(2)} off
             </p>
           )}
         </div>
@@ -292,7 +292,7 @@ export function Cart({ orderSetup, onBack, onOrderComplete }: CartProps) {
           <div className="space-y-1.5 text-sm">
             <div className="flex justify-between text-gray-600">
               <span>Subtotal</span>
-              <span>${cart.subtotal.toFixed(2)}</span>
+              <span>Rs {cart.subtotal.toFixed(2)}</span>
             </div>
 
             {cart.discount > 0 && (
@@ -300,13 +300,13 @@ export function Cart({ orderSetup, onBack, onOrderComplete }: CartProps) {
                 <span className="flex items-center gap-1">
                   <Tag className="h-3 w-3" /> Discount
                 </span>
-                <span>-${cart.discount.toFixed(2)}</span>
+                <span>-Rs {cart.discount.toFixed(2)}</span>
               </div>
             )}
 
             <div className="flex justify-between text-gray-600">
               <span>Tax</span>
-              <span>${cart.tax.toFixed(2)}</span>
+              <span>Rs {cart.tax.toFixed(2)}</span>
             </div>
 
             {orderSetup.orderType === "DELIVERY" && (
@@ -314,7 +314,7 @@ export function Cart({ orderSetup, onBack, onOrderComplete }: CartProps) {
                 <span className="flex items-center gap-1">
                   <Truck className="h-3 w-3" /> Delivery Fee
                 </span>
-                <span>${cart.deliveryFee.toFixed(2)}</span>
+                <span>Rs {cart.deliveryFee.toFixed(2)}</span>
               </div>
             )}
           </div>
@@ -323,7 +323,7 @@ export function Cart({ orderSetup, onBack, onOrderComplete }: CartProps) {
 
           <div className="flex justify-between items-center font-bold text-lg">
             <span>Total</span>
-            <span className="text-blue-600">${cart.total.toFixed(2)}</span>
+            <span className="text-blue-600">Rs {cart.total.toFixed(2)}</span>
           </div>
 
           <Button
@@ -331,7 +331,7 @@ export function Cart({ orderSetup, onBack, onOrderComplete }: CartProps) {
             size="lg"
             onClick={() => setCheckoutOpen(true)}
           >
-            Checkout — ${cart.total.toFixed(2)}
+            Checkout — Rs {cart.total.toFixed(2)}
           </Button>
         </div>
       )}

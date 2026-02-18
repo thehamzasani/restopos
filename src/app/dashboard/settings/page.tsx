@@ -84,7 +84,7 @@ export default async function SettingsPage() {
           </Card>
         </Link>
 
-        {/* ✅ ADD THIS - Delivery Settings Quick Card */}
+        {/* Delivery Settings Quick Card */}
         <Link href="/dashboard/settings/delivery">
           <Card className="cursor-pointer transition-colors hover:bg-muted/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -95,7 +95,7 @@ export default async function SettingsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ${Number(settings.deliveryFee).toFixed(2)}
+                Rs {Number(settings.deliveryFee).toFixed(2)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Default delivery fee
@@ -181,12 +181,14 @@ export default async function SettingsPage() {
             <CardContent>
               <RestaurantSettings initialData={{
                 ...settings,
-               
                 email: settings.email ?? undefined,
                 phone: settings.phone ?? undefined,
                 address: settings.address ?? undefined,
                 receiptHeader: settings.receiptHeader ?? undefined,
                 receiptFooter: settings.receiptFooter ?? undefined,
+                taxRate: Number(settings.taxRate),            // ✅ add
+                deliveryFee: Number(settings.deliveryFee),    // ✅ add
+                minOrderAmount: Number(settings.minOrderAmount), // ✅ add
               }} />
             </CardContent>
           </Card>

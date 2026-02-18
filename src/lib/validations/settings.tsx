@@ -35,8 +35,14 @@ export const createUserSchema = z.object({
   email: z.string().email("Invalid email"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   role: z.enum(["ADMIN", "MANAGER", "CASHIER", "KITCHEN"]),
+   isActive: z.boolean().default(true),
+})
+export const editUserSchema = createUserSchema.extend({
+  password: z.string().min(6).optional().or(z.literal("")),
 })
 
+
+export type EditUserInput = z.infer<typeof editUserSchema>
 export const updateUserSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   email: z.string().email("Invalid email"),

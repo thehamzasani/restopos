@@ -145,7 +145,7 @@ export default function InventoryReportPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Value</p>
-                <div className="text-2xl font-bold">${totalValue.toFixed(2)}</div>
+                <div className="text-2xl font-bold">Rs {totalValue.toFixed(2)}</div>
               </div>
               <DollarSign className="h-8 w-8 text-muted-foreground" />
             </div>
@@ -223,8 +223,8 @@ export default function InventoryReportPage() {
                         </TableCell>
                         <TableCell>{item.unit}</TableCell>
                         <TableCell>{item.lowStockThreshold}</TableCell>
-                        <TableCell>${item.costPerUnit || '0'}</TableCell>
-                        <TableCell className="font-semibold">${totalValue.toFixed(2)}</TableCell>
+                        <TableCell>Rs {item.costPerUnit || '0'}</TableCell>
+                        <TableCell className="font-semibold">Rs {totalValue.toFixed(2)}</TableCell>
                         <TableCell>
                           {isLowStock ? (
                             <Badge variant="destructive">Low Stock</Badge>

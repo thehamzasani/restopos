@@ -107,7 +107,7 @@ export default function DeliverySettings() {
               </Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">
-                  $
+                  Rs 
                 </span>
                 <Input
                   id="deliveryFee"
@@ -138,7 +138,7 @@ export default function DeliverySettings() {
               </Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">
-                  $
+                  Rs 
                 </span>
                 <Input
                   id="minOrderAmount"
@@ -168,9 +168,9 @@ export default function DeliverySettings() {
             <AlertDescription>
               <p className="font-medium text-sm mb-1">Delivery Pricing Preview</p>
               <div className="text-xs text-gray-600 space-y-1">
-                <p>Default delivery fee: <span className="font-semibold">${Number(watchDeliveryFee || 0).toFixed(2)}</span></p>
+                <p>Default delivery fee: <span className="font-semibold">Rs {Number(watchDeliveryFee || 0).toFixed(2)}</span></p>
                 {Number(watchMinOrder || 0) > 0 && (
-                  <p>Minimum order for delivery: <span className="font-semibold">${Number(watchMinOrder || 0).toFixed(2)}</span></p>
+                  <p>Minimum order for delivery: <span className="font-semibold">Rs {Number(watchMinOrder || 0).toFixed(2)}</span></p>
                 )}
                 {Number(watchMinOrder || 0) === 0 && (
                   <p>No minimum order required for delivery</p>

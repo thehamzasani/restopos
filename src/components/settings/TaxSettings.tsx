@@ -129,18 +129,18 @@ export function TaxSettings({ initialTaxRate }: TaxSettingsProps) {
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Subtotal:</span>
-              <span className="font-medium">${exampleAmount.toFixed(2)}</span>
+              <span className="font-medium">Rs {exampleAmount.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">
                 Tax ({currentTaxRate}%):
               </span>
-              <span className="font-medium">${exampleTax.toFixed(2)}</span>
+              <span className="font-medium">Rs {exampleTax.toFixed(2)}</span>
             </div>
             <div className="border-t pt-2">
               <div className="flex justify-between">
                 <span className="font-semibold">Total:</span>
-                <span className="font-semibold">${exampleTotal.toFixed(2)}</span>
+                <span className="font-semibold">Rs {exampleTotal.toFixed(2)}</span>
               </div>
             </div>
           </div>

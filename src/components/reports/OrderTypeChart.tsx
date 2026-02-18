@@ -40,7 +40,7 @@ function StatCard({
       <div>
         <p className="text-xs font-medium text-gray-500">{label}</p>
         <p className="text-sm font-bold text-gray-900">{orders} orders</p>
-        <p className="text-xs text-gray-600">${revenue.toFixed(2)}</p>
+        <p className="text-xs text-gray-600">Rs {revenue.toFixed(2)}</p>
       </div>
     </div>
   )
@@ -63,7 +63,7 @@ export default function OrderTypeChart({ data }: OrderTypeChartProps) {
         <div className="bg-white border rounded-lg shadow-sm p-3 text-sm">
           <p className="font-semibold">{item.name}</p>
           <p className="text-gray-600">{item.value} orders ({pct}%)</p>
-          <p className="text-gray-600">${item.revenue.toFixed(2)} revenue</p>
+          <p className="text-gray-600">Rs {item.revenue.toFixed(2)} revenue</p>
         </div>
       )
     }

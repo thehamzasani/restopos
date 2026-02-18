@@ -65,10 +65,15 @@ export  function MenuItemForm({
   })
 
   useEffect(() => {
-    if (initialData) {
-      form.reset(initialData)
-    }
-  }, [initialData, form])
+  if (initialData) {
+    form.reset({
+      ...initialData,
+      description: initialData.description ?? "",   // ✅ null → ""
+      image: initialData.image ?? "",               // ✅ null → ""
+      preparationTime: initialData.preparationTime ?? 15, // ✅ null → 15
+    })
+  }
+}, [initialData, form])
 
   const handleSubmit = async (data: MenuItemInput) => {
     await onSubmit(data)
@@ -133,7 +138,7 @@ export  function MenuItemForm({
                 name="price"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Price ($) *</FormLabel>
+                    <FormLabel>Price (Rs) *</FormLabel>
                     <FormControl>
                       <Input
                         type="number"

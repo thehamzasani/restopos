@@ -26,6 +26,7 @@ import {
 import { format } from "date-fns"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
+import { OrderType } from "@prisma/client"
 
 interface OrderDetailsProps {
   order: any
@@ -92,7 +93,7 @@ export function OrderDetails({ order, onStatusUpdate }: OrderDetailsProps) {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <OrderTypeBadge orderType={order.orderType} />
+              <OrderTypeBadge type={order.orderType as OrderType} />
               <OrderStatusBadge status={order.status} />
             </div>
           </div>
@@ -254,10 +255,10 @@ export function OrderDetails({ order, onStatusUpdate }: OrderDetailsProps) {
                 </div>
                 <div className="text-right">
                   <p className="font-medium">
-                    {item.quantity} × ${Number(item.price).toFixed(2)}
+                    {item.quantity} × Rs {Number(item.price).toFixed(2)}
                   </p>
                   <p className="text-sm text-gray-500">
-                    ${Number(item.subtotal).toFixed(2)}
+                    Rs {Number(item.subtotal).toFixed(2)}
                   </p>
                 </div>
               </div>
@@ -275,24 +276,24 @@ export function OrderDetails({ order, onStatusUpdate }: OrderDetailsProps) {
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Subtotal</span>
-              <span className="font-medium">${Number(order.subtotal).toFixed(2)}</span>
+              <span className="font-medium">Rs {Number(order.subtotal).toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Tax</span>
-              <span className="font-medium">${Number(order.tax).toFixed(2)}</span>
+              <span className="font-medium">Rs {Number(order.tax).toFixed(2)}</span>
             </div>
             {order.discount > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Discount</span>
                 <span className="font-medium text-red-600">
-                  -${Number(order.discount).toFixed(2)}
+                  -Rs {Number(order.discount).toFixed(2)}
                 </span>
               </div>
             )}
             <Separator />
             <div className="flex justify-between text-lg font-bold">
               <span>Total</span>
-              <span className="text-primary">${Number(order.total).toFixed(2)}</span>
+              <span className="text-primary">Rs {Number(order.total).toFixed(2)}</span>
             </div>
           </div>
         </CardContent>

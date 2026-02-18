@@ -188,7 +188,7 @@ export function MenuItemCard({
         <CardFooter className="p-3 pt-0">
           <div className="w-full flex items-center justify-between">
             <p className="text-xl font-bold text-blue-600">
-              ${Number(item.price).toFixed(2)}
+              Rs {Number(item.price).toFixed(2)}
             </p>
           </div>
         </CardFooter>

@@ -68,7 +68,7 @@ export function MenuItemCard({ item, onAddToCart }: MenuItemCardProps) {
         {/* Price and Add Button */}
         <div className="flex items-center justify-between">
           <span className="text-xl font-bold text-primary">
-            ${Number(item.price).toFixed(2)}
+            Rs {Number(item.price).toFixed(2)}
           </span>
 
           <Button

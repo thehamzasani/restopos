@@ -31,7 +31,7 @@ export default function TodayItemsSold({ items }: Props) {
         </div>
         <div>
           <p className="text-sm text-green-700 font-medium mb-1">Total Revenue</p>
-          <p className="text-2xl font-bold text-green-900">${totalRevenue.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-green-900">Rs {totalRevenue.toFixed(2)}</p>
         </div>
       </div>
 
@@ -80,7 +80,7 @@ export default function TodayItemsSold({ items }: Props) {
                     <div>
                       <span className="text-gray-500">Revenue:</span>
                       <span className="font-semibold text-green-600 ml-1">
-                        ${item.revenue}
+                        Rs {item.revenue}
                       </span>
                     </div>
                   </div>
@@ -88,7 +88,7 @@ export default function TodayItemsSold({ items }: Props) {
                   <div className="text-right text-sm">
                     <p className="text-gray-500">Avg Price</p>
                     <p className="font-semibold text-gray-900">
-                      ${(parseFloat(item.revenue) / item.quantity).toFixed(2)}
+                      Rs {(parseFloat(item.revenue) / item.quantity).toFixed(2)}
                     </p>
                   </div>
                 </div>

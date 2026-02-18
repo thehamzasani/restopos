@@ -43,11 +43,11 @@ export default function TopSellingItems({ items }: Props) {
           />
           <YAxis 
             tick={{ fontSize: 12 }}
-            tickFormatter={(value) => `$${value}`}
+            tickFormatter={(value) => `Rs ${value}`}
           />
           <Tooltip 
             formatter={(value: number, name: string) => {
-              if (name === 'revenue') return `$${value.toFixed(2)}`;
+              if (name === 'revenue') return `Rs ${value.toFixed(2)}`;
               return value;
             }}
           />
@@ -75,7 +75,7 @@ export default function TopSellingItems({ items }: Props) {
             </div>
             <div className="text-right">
               <p className="font-semibold text-green-600">
-                ${item.revenue}
+                Rs {item.revenue}
               </p>
             </div>
           </div>

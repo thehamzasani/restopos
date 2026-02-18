@@ -50,7 +50,7 @@ export function CartItem({
         </div>
 
         {/* Price per unit */}
-        <p className="text-xs text-gray-500 mb-1.5">${Number(item.price).toFixed(2)} each</p>
+        <p className="text-xs text-gray-500 mb-1.5">Rs {Number(item.price).toFixed(2)} each</p>
 
         {/* Quantity controls */}
         <div className="flex items-center gap-2">
@@ -72,7 +72,7 @@ export function CartItem({
             <Plus className="h-3 w-3" />
           </Button>
           <span className="ml-auto text-sm font-bold">
-            ${(Number(item.price) * item.quantity).toFixed(2)}
+            Rs {(Number(item.price) * item.quantity).toFixed(2)}
           </span>
         </div>
 

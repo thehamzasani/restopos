@@ -57,19 +57,19 @@ export default function RevenueChart({ data }: Props) {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-blue-600"></div>
-              <span className="text-sm">Total: ${payload[0]?.value.toFixed(2)}</span>
+              <span className="text-sm">Total: Rs {payload[0]?.value.toFixed(2)}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-green-600"></div>
-              <span className="text-sm">Dine-In: ${payload[1]?.value.toFixed(2)}</span>
+              <span className="text-sm">Dine-In: Rs {payload[1]?.value.toFixed(2)}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-orange-600"></div>
-              <span className="text-sm">Takeaway: ${payload[2]?.value.toFixed(2)}</span>
+              <span className="text-sm">Takeaway: Rs {payload[2]?.value.toFixed(2)}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-              <span className="text-sm">Delivery: ${payload[3]?.value.toFixed(2)}</span>
+              <span className="text-sm">Delivery: Rs {payload[3]?.value.toFixed(2)}</span>
             </div>
           </div>
         </div>
@@ -84,7 +84,7 @@ export default function RevenueChart({ data }: Props) {
       <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
         <div>
           <p className="text-sm text-muted-foreground">Average Revenue</p>
-          <p className="text-xl font-bold text-blue-600">${avgRevenue.toFixed(2)}</p>
+          <p className="text-xl font-bold text-blue-600">Rs {avgRevenue.toFixed(2)}</p>
         </div>
         <div>
           <p className="text-sm text-muted-foreground">Highest Day</p>
@@ -95,7 +95,7 @@ export default function RevenueChart({ data }: Props) {
         <div>
           <p className="text-sm text-muted-foreground">Lowest Day</p>
           <p className="text-xl font-bold text-orange-600">
-            ${Math.min(...data.map(d => d.total)).toFixed(2)}
+            Rs {Math.min(...data.map(d => d.total)).toFixed(2)}
           </p>
         </div>
       </div>
@@ -136,7 +136,7 @@ export default function RevenueChart({ data }: Props) {
           <YAxis
             stroke="#6b7280"
             style={{ fontSize: '12px' }}
-            tickFormatter={(value) => `$${value}`}
+            tickFormatter={(value) => `Rs ${value}`}
           />
 
           <Tooltip content={<CustomTooltip />} />
@@ -152,7 +152,7 @@ export default function RevenueChart({ data }: Props) {
             stroke="#94a3b8"
             strokeDasharray="5 5"
             label={{
-              value: `Avg: $${avgRevenue.toFixed(2)}`,
+              value: `Avg: Rs ${avgRevenue.toFixed(2)}`,
               position: 'right',
               fill: '#64748b',
               fontSize: 12
@@ -243,11 +243,11 @@ function TrendAnalysis({ data }: { data: RevenueData[] }) {
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <span className="text-muted-foreground">Start: </span>
-            <span className="font-semibold">${firstDay.toFixed(2)}</span>
+            <span className="font-semibold">Rs {firstDay.toFixed(2)}</span>
           </div>
           <div>
             <span className="text-muted-foreground">End: </span>
-            <span className="font-semibold">${lastDay.toFixed(2)}</span>
+            <span className="font-semibold">Rs {lastDay.toFixed(2)}</span>
           </div>
         </div>
       </div>

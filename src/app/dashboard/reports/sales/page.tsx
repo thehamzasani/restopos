@@ -306,13 +306,13 @@ export default function DetailedSalesReport() {
                 </Card>
                 <Card>
                     <CardContent className="pt-6">
-                        <div className="text-2xl font-bold">${totalRevenue.toFixed(2)}</div>
+                        <div className="text-2xl font-bold">Rs {totalRevenue.toFixed(2)}</div>
                         <p className="text-sm text-muted-foreground">Total Revenue</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="pt-6">
-                        <div className="text-2xl font-bold">${averageOrderValue.toFixed(2)}</div>
+                        <div className="text-2xl font-bold">Rs {averageOrderValue.toFixed(2)}</div>
                         <p className="text-sm text-muted-foreground">Average Order Value</p>
                     </CardContent>
                 </Card>

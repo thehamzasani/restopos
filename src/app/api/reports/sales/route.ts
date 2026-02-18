@@ -73,7 +73,7 @@ export async function GET(request: Request) {
 
     const baseWhere: any = {
       createdAt: { gte: startDate, lte: endDate },
-      status: { not: "CANCELLED" },
+      status: "COMPLETED",
     }
 
     if (orderType) {
@@ -132,7 +132,7 @@ export async function GET(request: Request) {
       FROM "public"."Order"
       WHERE "createdAt" >= ${startDate}
         AND "createdAt" <= ${endDate}
-        AND status::text != 'CANCELLED'
+        AND status::text = 'COMPLETED'
       GROUP BY DATE("createdAt")
       ORDER BY date ASC
     `
