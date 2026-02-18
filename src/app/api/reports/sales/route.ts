@@ -23,32 +23,53 @@ export async function GET(request: Request) {
     let endDate: Date = new Date()
     endDate.setHours(23, 59, 59, 999)
 
+
     if (startDateParam && endDateParam) {
       startDate = new Date(startDateParam)
+      startDate.setHours(0, 0, 0, 0)
       endDate = new Date(endDateParam)
       endDate.setHours(23, 59, 59, 999)
     } else {
+      const now = new Date()
       startDate = new Date()
+      endDate = new Date()
+      endDate.setHours(23, 59, 59, 999)
+
       switch (period) {
         case "today":
           startDate.setHours(0, 0, 0, 0)
           break
+        case "yesterday":
+          startDate = new Date(now)
+          startDate.setDate(now.getDate() - 1)
+          startDate.setHours(0, 0, 0, 0)
+          endDate = new Date(now)
+          endDate.setDate(now.getDate() - 1)
+          endDate.setHours(23, 59, 59, 999)
+          break
         case "week":
-          startDate.setDate(startDate.getDate() - 7)
+          startDate = new Date(now)
+          startDate.setDate(now.getDate() - 7)
           startDate.setHours(0, 0, 0, 0)
           break
         case "month":
-          startDate.setDate(1)
+          startDate = new Date(now)
+          startDate.setDate(now.getDate() - 30)
+          startDate.setHours(0, 0, 0, 0)
+          break
+        case "3months":
+          startDate = new Date(now)
+          startDate.setDate(now.getDate() - 90)
           startDate.setHours(0, 0, 0, 0)
           break
         case "year":
-          startDate = new Date(startDate.getFullYear(), 0, 1)
+          startDate = new Date(now.getFullYear(), 0, 1)
+          startDate.setHours(0, 0, 0, 0)
           break
         default:
           startDate.setHours(0, 0, 0, 0)
       }
     }
-
     const baseWhere: any = {
       createdAt: { gte: startDate, lte: endDate },
       status: { not: "CANCELLED" },
@@ -115,6 +136,14 @@ export async function GET(request: Request) {
       ORDER BY date ASC
     `
 
+    const serializedTrend = (revenueTrend as any[]).map(row => ({
+      date: row.date,
+      dine_in: Number(row.dine_in),
+      takeaway: Number(row.takeaway),
+      delivery: Number(row.delivery),
+      total: Number(row.total),
+      count: Number(row.count),
+    }))
     // Discount analytics
     const totalDiscount = orders.reduce((sum, o) => sum + Number(o.discount), 0)
     const ordersWithDiscount = orders.filter((o) => Number(o.discount) > 0).length
@@ -146,7 +175,7 @@ export async function GET(request: Request) {
           },
         },
         paymentBreakdown,
-        revenueTrend,
+        revenueTrend: serializedTrend,
         period: { startDate, endDate },
       },
     })

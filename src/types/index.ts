@@ -83,9 +83,12 @@ export interface MenuItem {
   preparationTime: number | null
   createdAt: Date
   updatedAt: Date
-  category?: {
+  category: {
     id: string
     name: string
+  }
+  _count?: {
+    ingredients?: number
   }
 }
 

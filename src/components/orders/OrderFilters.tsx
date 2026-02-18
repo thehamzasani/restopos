@@ -61,7 +61,8 @@ const DEFAULT_FILTERS: OrderFilterValues = {
   endDate: "",
 }
 
-export  function OrderFilters({ filters, onFilterChange }: OrderFiltersProps) {
+export  function OrderFilters({ filters = DEFAULT_FILTERS, onFilterChange }: OrderFiltersProps) {
+  if (!filters) return null;
   const hasActiveFilters =
     filters.status !== "all" ||
     filters.orderType !== "all" ||

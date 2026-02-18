@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma"
 import { updateOrderStatusSchema } from "@/lib/validations/order"
 
 // PUT /api/orders/[id]/status - Update order status
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   try {
     const session = await auth()
     if (!session) {
