@@ -10,7 +10,7 @@ import { LowStockAlert } from "./LowStockAlert"
 import  SearchBar from "@/components/shared/SearchBar"
 import { Button } from "@/components/ui/button"
 import { Plus, Filter, PackageOpen } from "lucide-react"
-import  LoadingSpinner  from "@/components/shared/LoadingSpinner"
+import  {LoadingSpinner}  from "@/components/shared/LoadingSpinner"
 import {
   Dialog,
   DialogContent,

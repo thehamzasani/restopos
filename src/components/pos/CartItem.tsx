@@ -1,12 +1,12 @@
 "use client"
+// src/components/pos/CartItem.tsx
 
+import { useState } from "react"
 import { CartItem as CartItemType } from "@/types"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Minus, Plus, Trash2 } from "lucide-react"
 import Image from "next/image"
-import { useState } from "react"
 
 interface CartItemProps {
   item: CartItemType
@@ -24,80 +24,77 @@ export function CartItem({
   const [showNotes, setShowNotes] = useState(false)
 
   return (
-    <div className="flex gap-3 pb-4 border-b">
-      {/* Image */}
-      <div className="relative h-16 w-16 bg-gray-100 rounded-md overflow-hidden flex-shrink-0">
+    <div className="flex gap-3 pb-3 border-b last:border-0">
+      {/* Thumbnail */}
+      <div className="relative h-14 w-14 bg-gray-100 rounded-md overflow-hidden flex-shrink-0">
         {item.image ? (
           <Image src={item.image} alt={item.name} fill className="object-cover" />
         ) : (
-          <div className="flex items-center justify-center h-full text-gray-400">
-            <span className="text-2xl">🍽️</span>
-          </div>
+          <div className="flex items-center justify-center h-full text-xl">🍽️</div>
         )}
       </div>
 
       {/* Details */}
       <div className="flex-1 min-w-0">
-        {/* Name and Remove */}
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <h4 className="font-medium text-sm line-clamp-2">{item.name}</h4>
+        {/* Name + Remove */}
+        <div className="flex items-start justify-between gap-1 mb-1">
+          <h4 className="font-medium text-sm leading-tight line-clamp-2">{item.name}</h4>
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
+            className="h-6 w-6 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 flex-shrink-0"
             onClick={() => onRemove(item.id)}
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
 
-        {/* Price */}
-        <p className="text-sm text-gray-600 mb-2">
-          ${Number(item.price).toFixed(2)} each
-        </p>
+        {/* Price per unit */}
+        <p className="text-xs text-gray-500 mb-1.5">${Number(item.price).toFixed(2)} each</p>
 
-        {/* Quantity Controls */}
-        <div className="flex items-center gap-2 mb-2">
+        {/* Quantity controls */}
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
-            className="h-7 w-7 p-0"
-            onClick={() => onUpdateQuantity(item.id, Math.max(1, item.quantity - 1))}
+            className="h-6 w-6 p-0"
+            onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
           >
             <Minus className="h-3 w-3" />
           </Button>
-          <span className="text-sm font-medium w-8 text-center">
-            {item.quantity}
-          </span>
+          <span className="text-sm font-semibold w-6 text-center">{item.quantity}</span>
           <Button
             variant="outline"
             size="sm"
-            className="h-7 w-7 p-0"
+            className="h-6 w-6 p-0"
             onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
           >
             <Plus className="h-3 w-3" />
           </Button>
-          <span className="ml-auto font-semibold">
+          <span className="ml-auto text-sm font-bold">
             ${(Number(item.price) * item.quantity).toFixed(2)}
           </span>
         </div>
 
         {/* Notes */}
-        <div>
+        <div className="mt-1.5">
           <Button
             variant="link"
             size="sm"
-            className="h-auto p-0 text-xs"
+            className="h-auto p-0 text-xs text-gray-400 hover:text-gray-600"
             onClick={() => setShowNotes(!showNotes)}
           >
-            {showNotes ? "Hide notes" : "Add notes"}
+            {showNotes ? "Hide notes" : item.notes ? "Edit notes" : "Add notes"}
           </Button>
+          {item.notes && !showNotes && (
+            <p className="text-xs text-amber-600 italic mt-0.5">"{item.notes}"</p>
+          )}
           {showNotes && (
             <Textarea
               placeholder="Special instructions..."
-              value={item.notes || ""}
+              value={item.notes ?? ""}
               onChange={(e) => onUpdateNotes(item.id, e.target.value)}
-              className="mt-2 text-sm"
+              className="mt-1 text-xs"
               rows={2}
             />
           )}

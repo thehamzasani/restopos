@@ -8,9 +8,9 @@ import Link from "next/link"
 import { auth } from "@/lib/auth"
 
 interface OrderPageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 async function getOrder(id: string) {
@@ -54,6 +54,7 @@ async function getOrder(id: string) {
     tax: Number(order.tax),
     discount: Number(order.discount),
     total: Number(order.total),
+    deliveryFee: order.deliveryFee ? Number(order.deliveryFee) : null,
     orderItems: order.orderItems.map((item) => ({
       ...item,
       price: Number(item.price),
@@ -69,7 +70,8 @@ export default async function OrderPage({ params }: OrderPageProps) {
     redirect("/login")
   }
 
-  const order = await getOrder(params.id)
+  const { id } = await params 
+  const order = await getOrder(id)
 
   if (!order) {
     notFound()
@@ -92,7 +94,7 @@ export default async function OrderPage({ params }: OrderPageProps) {
         </div>
         
         {/* ✅ UPDATED: Use new client component for receipt */}
-        <OrderReceiptButton orderId={params.id} />
+        <OrderReceiptButton orderId={id} />
       </div>
 
       {/* Order Details */}

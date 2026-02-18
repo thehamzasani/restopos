@@ -83,22 +83,27 @@ enum TableStatus {
 }
 
 // ============================================
-// ORDER MANAGEMENT (SUPPORTS DINE-IN & TAKEAWAY)
+// ORDER MANAGEMENT (SUPPORTS DINE-IN, TAKEAWAY & DELIVERY)
 // ============================================
 
 model Order {
   id            String        @id @default(cuid())
   orderNumber   String        @unique
-  orderType     OrderType     @default(DINE_IN) // DINE-IN or TAKEAWAY
-  
+  orderType     OrderType     @default(DINE_IN) // DINE-IN, TAKEAWAY or DELIVERY
+
   // For DINE-IN orders
   tableId       String?       // Optional - only for DINE-IN
   table         Table?        @relation(fields: [tableId], references: [id])
-  
-  // For TAKEAWAY orders
-  customerName  String?       // Customer name (optional for takeaway)
-  customerPhone String?       // Customer phone (optional for takeaway)
-  
+
+  // For TAKEAWAY & DELIVERY orders
+  customerName  String?       // Customer name
+  customerPhone String?       // Customer phone
+
+  // For DELIVERY orders only
+  deliveryAddress String?     // Full delivery address
+  deliveryNote    String?     // Delivery instructions (e.g., "Ring bell", "Leave at door")
+  deliveryFee     Decimal     @default(0) @db.Decimal(10, 2) // Delivery charge
+
   // Common fields
   userId        String
   user          User          @relation(fields: [userId], references: [id])
@@ -119,12 +124,14 @@ model Order {
 enum OrderType {
   DINE_IN   // Customer eating at restaurant
   TAKEAWAY  // Customer taking food away
+  DELIVERY  // Food delivered to customer address
 }
 
 enum OrderStatus {
   PENDING    // Order created, not started
   PREPARING  // Kitchen is preparing
   READY      // Food is ready
+  OUT_FOR_DELIVERY // On the way (delivery orders)
   COMPLETED  // Order delivered and paid
   CANCELLED  // Order cancelled
 }
@@ -234,14 +241,16 @@ enum StockType {
 // ============================================
 
 model Settings {
-  id             String   @id @default(cuid())
-  restaurantName String
-  address        String?
-  phone          String?
-  email          String?
-  taxRate        Decimal  @db.Decimal(5, 2) // e.g., 10.00 for 10%
-  currency       String   @default("USD")
-  receiptHeader  String?
-  receiptFooter  String?
-  updatedAt      DateTime @updatedAt
+  id              String   @id @default(cuid())
+  restaurantName  String
+  address         String?
+  phone           String?
+  email           String?
+  taxRate         Decimal  @db.Decimal(5, 2)  // e.g., 10.00 for 10%
+  currency        String   @default("USD")
+  receiptHeader   String?
+  receiptFooter   String?
+  deliveryFee     Decimal  @default(0) @db.Decimal(10, 2) // Default delivery fee
+  minOrderAmount  Decimal  @default(0) @db.Decimal(10, 2) // Minimum order for delivery
+  updatedAt       DateTime @updatedAt
 }

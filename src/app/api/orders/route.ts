@@ -1,230 +1,239 @@
-import { NextRequest, NextResponse } from "next/server"
+// src/app/api/orders/route.ts
+import { NextResponse } from "next/server"
+// import { getServerSession } from "next-auth"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { createOrderSchema } from "@/lib/validations/order"
 
-// GET /api/orders - Get all orders
-export async function GET(request: NextRequest) {
+// GET /api/orders - Get all orders with filters
+export async function GET(request: Request) {
   try {
     const session = await auth()
-
     if (!session) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      )
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     }
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get("status")
     const orderType = searchParams.get("orderType")
-    const tableId = searchParams.get("tableId")
     const paymentStatus = searchParams.get("paymentStatus")
     const search = searchParams.get("search")
     const startDate = searchParams.get("startDate")
     const endDate = searchParams.get("endDate")
+    const limit = parseInt(searchParams.get("limit") || "50")
+    const page = parseInt(searchParams.get("page") || "1")
+    const skip = (page - 1) * limit
 
-    // Build where clause
     const where: any = {}
 
-    if (status && status !== "all") {
-      where.status = status
+    if (status) {
+      const statuses = status.split(",")
+      where.status = { in: statuses }
     }
 
-    if (orderType && orderType !== "all") {
-      where.orderType = orderType
+    if (orderType) {
+      const types = orderType.split(",")
+      where.orderType = { in: types }
     }
 
-    if (tableId) {
-      where.tableId = tableId
-    }
-
-    if (paymentStatus && paymentStatus !== "all") {
+    if (paymentStatus) {
       where.paymentStatus = paymentStatus
     }
 
     if (search) {
-      where.orderNumber = {
-        contains: search,
-        mode: "insensitive",
-      }
+      where.OR = [
+        { orderNumber: { contains: search, mode: "insensitive" } },
+        { customerName: { contains: search, mode: "insensitive" } },
+        { customerPhone: { contains: search, mode: "insensitive" } },
+      ]
     }
 
     if (startDate || endDate) {
       where.createdAt = {}
       if (startDate) where.createdAt.gte = new Date(startDate)
-      if (endDate) where.createdAt.lte = new Date(endDate)
+      if (endDate) {
+        const end = new Date(endDate)
+        end.setHours(23, 59, 59, 999)
+        where.createdAt.lte = end
+      }
     }
 
-    const orders = await prisma.order.findMany({
-      where,
-      include: {
-        table: {
-          select: { id: true, number: true },
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        include: {
+          table: { select: { id: true, number: true } },
+          user: { select: { id: true, name: true } },
+          orderItems: {
+            include: {
+              menuItem: { select: { id: true, name: true, price: true } },
+            },
+          },
         },
-        user: {
-          select: { id: true, name: true },
-        },
-        orderItems: {
-          select: { id: true, quantity: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        skip,
+      }),
+      prisma.order.count({ where }),
+    ])
+
+    return NextResponse.json({
+      success: true,
+      data: orders,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     })
-
-    // Serialize Decimal fields to numbers
-    const serializedOrders = orders.map((order) => ({
-      ...order,
-      subtotal: Number(order.subtotal),
-      tax: Number(order.tax),
-      discount: Number(order.discount),
-      total: Number(order.total),
-    }))
-
-    return NextResponse.json({ success: true, data: serializedOrders })
   } catch (error) {
-    console.error("Error fetching orders:", error)
-    return NextResponse.json(
-      { success: false, error: "Failed to fetch orders" },
-      { status: 500 }
-    )
+    console.error("[GET /api/orders]", error)
+    return NextResponse.json({ success: false, error: "Failed to fetch orders" }, { status: 500 })
   }
 }
 
 // POST /api/orders - Create new order
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const session = await auth()
-
     if (!session) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      )
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     }
 
     const body = await request.json()
-    const validatedData = createOrderSchema.parse(body)
+    const parsed = createOrderSchema.safeParse(body)
 
-    // ✅ Get tax rate from settings (not hardcoded!)
-    const settings = await prisma.settings.findFirst()
-    const taxRate = Number(settings?.taxRate ?? 10) // fallback to 10 if no settings
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: "Validation failed", details: parsed.error.issues },
+        { status: 400 }
+      )
+    }
 
-    // Calculate subtotal from items
-    const subtotal = validatedData.items.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    )
+    const data = parsed.data
 
-    // ✅ Use tax rate from settings
-    const tax = (subtotal * taxRate) / 100
-    const total = subtotal + tax - validatedData.discount
-
-    // Generate order number
-    const orderCount = await prisma.order.count()
-    const orderNumber = `ORD${String(orderCount + 1).padStart(6, "0")}`
-
-    // Check if table already has an active order (dine-in)
-    if (validatedData.orderType === "DINE_IN" && validatedData.tableId) {
-      const existingOrder = await prisma.order.findFirst({
-        where: {
-          tableId: validatedData.tableId,
-          status: { in: ["PENDING", "PREPARING", "READY"] },
-        },
-      })
-
-      if (existingOrder) {
-        // Add items to existing order
-        const existingSubtotal = Number(existingOrder.subtotal)
-        const newSubtotal = existingSubtotal + subtotal
-        // ✅ Use tax rate from settings for existing order update too
-        const newTax = (newSubtotal * taxRate) / 100
-        const newTotal = newSubtotal + newTax - validatedData.discount
-
-        const updatedOrder = await prisma.order.update({
-          where: { id: existingOrder.id },
-          data: {
-            subtotal: newSubtotal,
-            tax: newTax,
-            total: newTotal,
-            orderItems: {
-              createMany: {
-                data: validatedData.items.map((item) => ({
-                  menuItemId: item.menuItemId,
-                  quantity: item.quantity,
-                  price: item.price,
-                  subtotal: item.price * item.quantity,
-                  notes: item.notes,
-                })),
-              },
-            },
-          },
-          include: {
-            orderItems: { include: { menuItem: true } },
-            table: true,
-            user: true,
-          },
-        })
-
-        return NextResponse.json({
-          success: true,
-          data: updatedOrder,
-          isUpdated: true,
-          message: `Items added to existing order ${existingOrder.orderNumber}`,
-        })
+    // Validate table for DINE_IN
+    if (data.orderType === "DINE_IN") {
+      if (!data.tableId) {
+        return NextResponse.json(
+          { success: false, error: "Table is required for dine-in orders" },
+          { status: 400 }
+        )
+      }
+      const table = await prisma.table.findUnique({ where: { id: data.tableId } })
+      if (!table) {
+        return NextResponse.json({ success: false, error: "Table not found" }, { status: 404 })
       }
     }
 
-    // Create new order
-    const order = await prisma.order.create({
-      data: {
-        orderNumber,
-        orderType: validatedData.orderType,
-        tableId: validatedData.tableId,
-        customerName: validatedData.customerName,
-        customerPhone: validatedData.customerPhone,
-        userId: session.user.id,
-        subtotal,
-        tax,
-        discount: validatedData.discount,
-        total,
-        notes: validatedData.notes,
-        status: "PENDING",
-        paymentMethod: validatedData.paymentMethod,
-        paymentStatus: validatedData.paymentMethod ? "PAID" : "PENDING",
-        orderItems: {
-          createMany: {
-            data: validatedData.items.map((item) => ({
+    // Validate delivery address for DELIVERY
+    if (data.orderType === "DELIVERY" && !data.deliveryAddress) {
+      return NextResponse.json(
+        { success: false, error: "Delivery address is required" },
+        { status: 400 }
+      )
+    }
+
+    // Fetch and validate menu items
+    const menuItemIds = data.items.map((i) => i.menuItemId)
+    const menuItems = await prisma.menuItem.findMany({
+      where: { id: { in: menuItemIds }, isAvailable: true },
+    })
+
+    if (menuItems.length !== menuItemIds.length) {
+      return NextResponse.json(
+        { success: false, error: "One or more menu items are unavailable" },
+        { status: 400 }
+      )
+    }
+
+    // Get settings for tax rate
+    const settings = await prisma.settings.findFirst()
+    const taxRate = settings ? Number(settings.taxRate) / 100 : 0.1
+
+    // Calculate totals
+    const itemsWithPrices = data.items.map((item) => {
+      const menuItem = menuItems.find((m) => m.id === item.menuItemId)!
+      const price = Number(menuItem.price)
+      return {
+        ...item,
+        price,
+        subtotal: price * item.quantity,
+      }
+    })
+
+    const subtotal = itemsWithPrices.reduce((sum, i) => sum + i.subtotal, 0)
+    const discountAmount = Math.min(data.discount ?? 0, subtotal)
+    const taxableAmount = subtotal - discountAmount
+    const tax = taxableAmount * taxRate
+    const deliveryFee = data.orderType === "DELIVERY" ? (data.deliveryFee ?? 0) : 0
+    const total = taxableAmount + tax + deliveryFee
+
+    // Generate order number
+    const orderCount = await prisma.order.count()
+    const orderNumber = `ORD-${String(orderCount + 1).padStart(4, "0")}`
+
+    // Create order in transaction
+    const order = await prisma.$transaction(async (tx) => {
+      const newOrder = await tx.order.create({
+        data: {
+          orderNumber,
+          orderType: data.orderType,
+          tableId: data.orderType === "DINE_IN" ? data.tableId : null,
+          customerName: data.customerName ?? null,
+          customerPhone: data.customerPhone ?? null,
+          deliveryAddress: data.orderType === "DELIVERY" ? data.deliveryAddress : null,
+          deliveryNote: data.orderType === "DELIVERY" ? (data.deliveryNote ?? null) : null,
+          deliveryFee,
+          userId: session.user.id,
+          subtotal,
+          tax: Math.round(tax * 100) / 100,
+          discount: discountAmount,
+          total: Math.round(total * 100) / 100,
+          status: "PENDING",
+          paymentMethod: data.paymentMethod ?? null,
+          paymentStatus: data.paymentMethod ? "PAID" : "PENDING",
+          notes: data.notes ?? null,
+          orderItems: {
+            create: itemsWithPrices.map((item) => ({
               menuItemId: item.menuItemId,
               quantity: item.quantity,
               price: item.price,
-              subtotal: item.price * item.quantity,
-              notes: item.notes,
+              subtotal: Math.round(item.subtotal * 100) / 100,
+              notes: item.notes ?? null,
             })),
           },
         },
-      },
-      include: {
-        orderItems: { include: { menuItem: true } },
-        table: true,
-        user: true,
-      },
+        include: {
+          table: { select: { id: true, number: true } },
+          user: { select: { id: true, name: true } },
+          orderItems: {
+            include: { menuItem: { select: { id: true, name: true } } },
+          },
+        },
+      })
+
+      // Mark table as occupied for dine-in
+      if (data.orderType === "DINE_IN" && data.tableId) {
+        await tx.table.update({
+          where: { id: data.tableId },
+          data: { status: "OCCUPIED" },
+        })
+      }
+
+      // Create transaction record if payment method given
+      if (data.paymentMethod) {
+        await tx.transaction.create({
+          data: {
+            orderId: newOrder.id,
+            amount: Math.round(total * 100) / 100,
+            method: data.paymentMethod,
+          },
+        })
+      }
+
+      return newOrder
     })
 
-    // Update table status to OCCUPIED for dine-in
-    if (validatedData.tableId) {
-      await prisma.table.update({
-        where: { id: validatedData.tableId },
-        data: { status: "OCCUPIED" },
-      })
-    }
-
-    return NextResponse.json({ success: true, data: order })
-  } catch (error: any) {
-    console.error("Error creating order:", error)
-    return NextResponse.json(
-      { success: false, error: error.message || "Failed to create order" },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: true, data: order }, { status: 201 })
+  } catch (error) {
+    console.error("[POST /api/orders]", error)
+    return NextResponse.json({ success: false, error: "Failed to create order" }, { status: 500 })
   }
 }

@@ -1,121 +1,119 @@
 // src/app/api/orders/[id]/status/route.ts
-
-import { NextRequest, NextResponse } from "next/server"
-import  getServerSession from "next-auth"
+import { NextResponse } from "next/server"
+// import { getServerSession } from "next-auth"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { updateOrderStatusSchema } from "@/lib/validations/order"
-import { deductInventoryForOrder } from "@/lib/inventory-deduction"
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+// PUT /api/orders/[id]/status - Update order status
+export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   try {
     const session = await auth()
-
     if (!session) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      )
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     }
 
-    const body = await req.json()
+    const body = await request.json()
+    const parsed = updateOrderStatusSchema.safeParse(body)
 
-    // Validate input
-    const validationResult = updateOrderStatusSchema.safeParse(body)
-
-    if (!validationResult.success) {
+    if (!parsed.success) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid input",
-          details: validationResult.error.issues,
-        },
+        { success: false, error: "Invalid status", details: parsed.error.issues },
         { status: 400 }
       )
     }
 
-    const { status } = validationResult.data
+    const { status } = parsed.data
 
-    // Get current order
-    const currentOrder = await prisma.order.findUnique({
+    // Find the existing order
+    const existingOrder = await prisma.order.findUnique({
       where: { id: params.id },
-      include: {
-        table: true,
-      },
+      include: { table: true },
     })
 
-    if (!currentOrder) {
-      return NextResponse.json(
-        { success: false, error: "Order not found" },
-        { status: 404 }
-      )
+    if (!existingOrder) {
+      return NextResponse.json({ success: false, error: "Order not found" }, { status: 404 })
     }
 
-    // ✅ NEW: Auto-deduct inventory when status changes to COMPLETED
-    if (status === "COMPLETED" && currentOrder.status !== "COMPLETED") {
-      const deductionResult = await deductInventoryForOrder(params.id)
-
-      if (!deductionResult.success) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: deductionResult.message,
-            insufficientItems: deductionResult.insufficientItems,
-          },
-          { status: 400 }
-        )
-      }
-    }
-
-    // Update order status
-    const order = await prisma.order.update({
-      where: { id: params.id },
-      data: {
-        status,
-        updatedAt: new Date(),
-      },
-      include: {
-        user: {
-          select: {
-            name: true,
+    // Update order and handle side effects
+    const updatedOrder = await prisma.$transaction(async (tx) => {
+      const order = await tx.order.update({
+        where: { id: params.id },
+        data: { status },
+        include: {
+          table: { select: { id: true, number: true } },
+          user: { select: { id: true, name: true } },
+          orderItems: {
+            include: { menuItem: { select: { id: true, name: true } } },
           },
         },
-        table: true,
-        orderItems: {
-          include: {
-            menuItem: true,
-          },
-        },
-      },
-    })
-
-    // If order is completed and has a table, set table to AVAILABLE
-    if (status === "COMPLETED" && order.tableId) {
-      await prisma.table.update({
-        where: { id: order.tableId },
-        data: { status: "AVAILABLE" },
       })
-    }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...order,
-        subtotal: Number(order.subtotal),
-        tax: Number(order.tax),
-        discount: Number(order.discount),
-        total: Number(order.total),
-      },
-      message: "Order status updated successfully",
+      // Free up table when dine-in order is completed or cancelled
+      if (
+        existingOrder.orderType === "DINE_IN" &&
+        existingOrder.tableId &&
+        (status === "COMPLETED" || status === "CANCELLED")
+      ) {
+        // Check if table has other active orders
+        const activeOrders = await tx.order.count({
+          where: {
+            tableId: existingOrder.tableId,
+            id: { not: params.id },
+            status: { notIn: ["COMPLETED", "CANCELLED"] },
+          },
+        })
+
+        if (activeOrders === 0) {
+          await tx.table.update({
+            where: { id: existingOrder.tableId },
+            data: { status: "AVAILABLE" },
+          })
+        }
+      }
+
+      // Auto-deduct inventory on COMPLETED
+      if (status === "COMPLETED" && existingOrder.status !== "COMPLETED") {
+        const orderItems = await tx.orderItem.findMany({
+          where: { orderId: params.id },
+          include: {
+            menuItem: {
+              include: {
+                ingredients: { include: { inventory: true } },
+              },
+            },
+          },
+        })
+
+        for (const orderItem of orderItems) {
+          for (const ingredient of orderItem.menuItem.ingredients) {
+            const deductAmount = Number(ingredient.quantityUsed) * orderItem.quantity
+            const currentQty = Number(ingredient.inventory.quantity)
+            const newQty = Math.max(0, currentQty - deductAmount)
+
+            await tx.inventory.update({
+              where: { id: ingredient.inventoryId },
+              data: { quantity: newQty },
+            })
+
+            await tx.stockHistory.create({
+              data: {
+                inventoryId: ingredient.inventoryId,
+                quantity: deductAmount,
+                type: "OUT",
+                reason: `Auto-deducted for Order #${existingOrder.orderNumber}`,
+              },
+            })
+          }
+        }
+      }
+
+      return order
     })
+
+    return NextResponse.json({ success: true, data: updatedOrder })
   } catch (error) {
-    console.error("Update order status error:", error)
-    return NextResponse.json(
-      { success: false, error: "Failed to update order status" },
-      { status: 500 }
-    )
+    console.error("[PUT /api/orders/[id]/status]", error)
+    return NextResponse.json({ success: false, error: "Failed to update order status" }, { status: 500 })
   }
 }

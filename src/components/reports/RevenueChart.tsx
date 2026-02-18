@@ -1,8 +1,6 @@
 'use client';
 
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -20,6 +18,7 @@ interface RevenueData {
   total: number;
   dineIn: number;
   takeaway: number;
+  delivery: number;  
 }
 
 interface Props {
@@ -41,9 +40,11 @@ export default function RevenueChart({ data }: Props) {
     date: format(parseISO(item.date), 'MMM dd'),
     displayTotal: `$${item.total.toFixed(2)}`,
     displayDineIn: `$${item.dineIn.toFixed(2)}`,
-    displayTakeaway: `$${item.takeaway.toFixed(2)}`
+    displayTakeaway: `$${item.takeaway.toFixed(2)}`,
+    displayDelivery: `$${item.delivery.toFixed(2)}`,
   }));
 
+  console.log('Formatted Revenue Data:', formattedData);
   // Calculate average for reference line
   const avgRevenue = data.reduce((sum, item) => sum + item.total, 0) / data.length;
 
@@ -56,15 +57,19 @@ export default function RevenueChart({ data }: Props) {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-blue-600"></div>
-              <span className="text-sm">Total: ${payload[0].value.toFixed(2)}</span>
+              <span className="text-sm">Total: ${payload[0]?.value.toFixed(2)}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-green-600"></div>
-              <span className="text-sm">Dine-In: ${payload[1].value.toFixed(2)}</span>
+              <span className="text-sm">Dine-In: ${payload[1]?.value.toFixed(2)}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-orange-600"></div>
-              <span className="text-sm">Takeaway: ${payload[2].value.toFixed(2)}</span>
+              <span className="text-sm">Takeaway: ${payload[2]?.value.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+              <span className="text-sm">Delivery: ${payload[3]?.value.toFixed(2)}</span>
             </div>
           </div>
         </div>
@@ -95,7 +100,7 @@ export default function RevenueChart({ data }: Props) {
         </div>
       </div>
 
-      {/* Area Chart (Shows trends better with filled areas) */}
+      {/* Area Chart */}
       <ResponsiveContainer width="100%" height={400}>
         <AreaChart
           data={formattedData}
@@ -114,43 +119,46 @@ export default function RevenueChart({ data }: Props) {
               <stop offset="5%" stopColor="#f97316" stopOpacity={0.3}/>
               <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
             </linearGradient>
+            <linearGradient id="colorDelivery" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+              <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+            </linearGradient>
           </defs>
-          
+
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-          
-          <XAxis 
-            dataKey="date" 
+
+          <XAxis
+            dataKey="date"
             stroke="#6b7280"
             style={{ fontSize: '12px' }}
           />
-          
-          <YAxis 
+
+          <YAxis
             stroke="#6b7280"
             style={{ fontSize: '12px' }}
             tickFormatter={(value) => `$${value}`}
           />
-          
+
           <Tooltip content={<CustomTooltip />} />
-          
-          <Legend 
+
+          <Legend
             wrapperStyle={{ fontSize: '14px', paddingTop: '20px' }}
             iconType="circle"
           />
-          
+
           {/* Average reference line */}
-          <ReferenceLine 
-            y={avgRevenue} 
-            stroke="#94a3b8" 
+          <ReferenceLine
+            y={avgRevenue}
+            stroke="#94a3b8"
             strokeDasharray="5 5"
-            label={{ 
-              value: `Avg: $${avgRevenue.toFixed(2)}`, 
+            label={{
+              value: `Avg: $${avgRevenue.toFixed(2)}`,
               position: 'right',
               fill: '#64748b',
               fontSize: 12
             }}
           />
-          
-          {/* Areas with gradients */}
+
           <Area
             type="monotone"
             dataKey="total"
@@ -159,7 +167,7 @@ export default function RevenueChart({ data }: Props) {
             fill="url(#colorTotal)"
             name="Total Revenue"
           />
-          
+
           <Area
             type="monotone"
             dataKey="dineIn"
@@ -168,7 +176,7 @@ export default function RevenueChart({ data }: Props) {
             fill="url(#colorDineIn)"
             name="Dine-In"
           />
-          
+
           <Area
             type="monotone"
             dataKey="takeaway"
@@ -176,6 +184,15 @@ export default function RevenueChart({ data }: Props) {
             strokeWidth={2}
             fill="url(#colorTakeaway)"
             name="Takeaway"
+          />
+
+          <Area
+            type="monotone"
+            dataKey="delivery"
+            stroke="#10b981"
+            strokeWidth={2}
+            fill="url(#colorDelivery)"
+            name="Delivery"
           />
         </AreaChart>
       </ResponsiveContainer>
@@ -198,8 +215,8 @@ function TrendAnalysis({ data }: { data: RevenueData[] }) {
 
   return (
     <div className={`p-4 rounded-lg border-2 ${
-      isPositive 
-        ? 'bg-green-50 border-green-200' 
+      isPositive
+        ? 'bg-green-50 border-green-200'
         : 'bg-red-50 border-red-200'
     }`}>
       <div className="flex items-center justify-between">

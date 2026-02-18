@@ -20,7 +20,6 @@ import {
     FileText,
     RefreshCw,
     Filter,
-    ArrowLeft,
     ChevronLeft
 } from 'lucide-react';
 import {
@@ -34,20 +33,25 @@ import {
 import { useRouter } from 'next/navigation';
 
 type DatePeriod = 'today' | 'yesterday' | 'week' | 'month' | '3months' | 'year' | 'custom';
-type OrderTypeFilter = 'ALL' | 'DINE_IN' | 'TAKEAWAY';
+type OrderTypeFilter = 'ALL' | 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY'; // ✅ added DELIVERY
 type PaymentFilter = 'ALL' | 'CASH' | 'CARD' | 'UPI' | 'OTHER';
 type StatusFilter = 'ALL' | 'COMPLETED' | 'CANCELLED';
 
 interface Order {
     id: string;
     orderNumber: string;
-    orderType: 'DINE_IN' | 'TAKEAWAY';
+    orderType: 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY'; // ✅ added DELIVERY
     tableId?: string;
     customerName?: string;
+    customerPhone?: string;
+    deliveryAddress?: string;
     total: string;
     subtotal: string;
     tax: string;
+    discount: string;
+    deliveryFee?: string;
     paymentMethod: string;
+    paymentStatus: string;
     status: string;
     createdAt: string;
     itemCount: number;
@@ -68,7 +72,6 @@ export default function DetailedSalesReport() {
         fetchOrders();
     }, [period, customStartDate, customEndDate, orderTypeFilter, paymentFilter, statusFilter]);
 
-    // IMPORTANT: Use SAME date calculation as main sales API
     const getDateRange = (period: DatePeriod) => {
         const now = new Date();
         const today = startOfDay(now);
@@ -82,42 +85,19 @@ export default function DetailedSalesReport() {
 
         switch (period) {
             case 'today':
-                return {
-                    start: today,
-                    end: endOfDay(now)
-                };
+                return { start: today, end: endOfDay(now) };
             case 'yesterday':
-                // FIXED: Only fetch yesterday's data (not today)
-                // This matches the main dashboard summary cards
-                return {
-                    start: startOfYesterday(),
-                    end: endOfYesterday()
-                };
+                return { start: startOfYesterday(), end: endOfYesterday() };
             case 'week':
-                return {
-                    start: subDays(today, 6), // Last 7 days including today
-                    end: endOfDay(now)
-                };
+                return { start: subDays(today, 6), end: endOfDay(now) };
             case 'month':
-                return {
-                    start: subDays(today, 29), // Last 30 days
-                    end: endOfDay(now)
-                };
+                return { start: subDays(today, 29), end: endOfDay(now) };
             case '3months':
-                return {
-                    start: subDays(today, 89), // Last 90 days
-                    end: endOfDay(now)
-                };
+                return { start: subDays(today, 89), end: endOfDay(now) };
             case 'year':
-                return {
-                    start: subDays(today, 364), // Last 365 days
-                    end: endOfDay(now)
-                };
+                return { start: subDays(today, 364), end: endOfDay(now) };
             default:
-                return {
-                    start: today,
-                    end: endOfDay(now)
-                };
+                return { start: today, end: endOfDay(now) };
         }
     };
 
@@ -125,8 +105,6 @@ export default function DetailedSalesReport() {
         setLoading(true);
         try {
             const { start, end } = getDateRange(period);
-
-            console.log(`[Detailed Sales Page] Fetching from ${start.toISOString()} to ${end.toISOString()}`);
 
             const params = new URLSearchParams({
                 startDate: start.toISOString(),
@@ -141,7 +119,6 @@ export default function DetailedSalesReport() {
             if (statusFilter !== 'ALL') {
                 params.append('status', statusFilter);
             } else {
-                // Default to COMPLETED like main API
                 params.append('status', 'COMPLETED');
             }
 
@@ -150,7 +127,6 @@ export default function DetailedSalesReport() {
 
             if (data.success) {
                 setOrders(data.data.orders || []);
-                console.log(`[Detailed Sales Page] Loaded ${data.data.orders.length} orders, Total Revenue: $${data.data.totalRevenue}`);
             }
         } catch (error) {
             console.error('Error fetching orders:', error);
@@ -192,7 +168,6 @@ export default function DetailedSalesReport() {
                         className="hover:bg-accent"
                     >
                         <ChevronLeft className="h-5 w-5 mr-1" />
-                      
                     </Button>
                     <div>
                         <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -225,7 +200,6 @@ export default function DetailedSalesReport() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    {/* Date Period Tabs */}
                     <div>
                         <label className="text-sm font-medium mb-2 block">Time Period</label>
                         <Tabs value={period} onValueChange={(v) => setPeriod(v as DatePeriod)}>
@@ -241,7 +215,6 @@ export default function DetailedSalesReport() {
                         </Tabs>
                     </div>
 
-                    {/* Custom Date Range */}
                     {period === 'custom' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t">
                             <div className="space-y-2">
@@ -254,7 +227,6 @@ export default function DetailedSalesReport() {
                                     max={customEndDate}
                                 />
                             </div>
-
                             <div className="space-y-2">
                                 <Label htmlFor="endDate">To Date</Label>
                                 <Input
@@ -269,7 +241,6 @@ export default function DetailedSalesReport() {
                         </div>
                     )}
 
-                    {/* Other Filters */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
                         <div>
                             <label className="text-sm font-medium mb-2 block">Order Type</label>
@@ -281,6 +252,7 @@ export default function DetailedSalesReport() {
                                     <SelectItem value="ALL">All Orders</SelectItem>
                                     <SelectItem value="DINE_IN">Dine-In Only</SelectItem>
                                     <SelectItem value="TAKEAWAY">Takeaway Only</SelectItem>
+                                    <SelectItem value="DELIVERY">Delivery Only</SelectItem> {/* ✅ added */}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -316,7 +288,6 @@ export default function DetailedSalesReport() {
                         </div>
                     </div>
 
-                    {/* Period Info */}
                     <div className="pt-2 border-t">
                         <p className="text-sm text-muted-foreground">
                             📅 Showing: <span className="font-semibold">{periodLabels[period]}</span>

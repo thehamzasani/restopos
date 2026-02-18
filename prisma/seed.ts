@@ -471,8 +471,66 @@ async function main() {
         lastRestocked: new Date(),
       },
     ],
-  })
+  }
 
+)
+
+// ─── ADD THIS SECTION to your existing seed.ts ───────────────────────────────
+// Place this INSIDE your main() function, at the very end before the console.log summary
+
+  // Seed Test Orders (past 7 days)
+  const menuItems = await prisma.menuItem.findMany({ take: 5 })
+  const tables = await prisma.table.findMany({ take: 3 })
+  const orderTypes = ["DINE_IN", "TAKEAWAY", "DELIVERY"] as const
+  const paymentMethods = ["CASH", "CARD"] as const
+
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date()
+    date.setDate(date.getDate() - i)
+    date.setHours(12, 0, 0, 0)
+
+    for (let j = 0; j < 3; j++) {
+      const orderType = orderTypes[j % orderTypes.length]
+      const item = menuItems[j % menuItems.length]
+      const quantity = Math.floor(Math.random() * 3) + 1
+      const subtotal = Math.round(Number(item.price) * quantity * 100) / 100
+      const tax = Math.round(subtotal * 0.1 * 100) / 100
+      const deliveryFee = orderType === "DELIVERY" ? 5 : 0
+      const total = subtotal + tax + deliveryFee
+
+      await prisma.order.create({
+        data: {
+          orderNumber: `TEST-${i}-${j}-${Date.now()}`,
+          orderType,
+          customerName: orderType !== "DINE_IN" ? `Test Customer ${j}` : null,
+          customerPhone: orderType !== "DINE_IN" ? "0300-0000000" : null,
+          tableId: orderType === "DINE_IN" ? tables[j % tables.length]?.id : null,
+          subtotal,
+          tax,
+          discount: 0,
+          deliveryFee,
+          total,
+          status: "COMPLETED",
+          paymentMethod: paymentMethods[j % paymentMethods.length],
+          paymentStatus: "PAID",
+          userId: admin.id,
+          deliveryAddress: orderType === "DELIVERY" ? "123 Test Street" : null,
+          createdAt: date,
+          orderItems: {
+            create: {
+              menuItemId: item.id,
+              quantity,
+              price: Number(item.price),
+              subtotal,
+            }
+          }
+        }
+      })
+    }
+    console.log(`✅ Created test orders for ${date.toDateString()}`)
+  }
+
+  console.log('✅ Created test orders for past 7 days')
   console.log('✅ Created inventory items')
 
   // Seed Settings

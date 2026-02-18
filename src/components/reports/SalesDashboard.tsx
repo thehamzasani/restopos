@@ -7,15 +7,13 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import RevenueChart from './RevenueChart';
-import TopSellingItems from './TopSellingItems';
 import OrderTypeChart from './OrderTypeChart';
-import TodayItemsSold from './TodayItemsSold';
-import { 
-  DollarSign, 
-  ShoppingBag, 
-  TrendingUp, 
-  UtensilsCrossed, 
+import {
+  DollarSign,
+  TrendingUp,
+  UtensilsCrossed,
   Package,
+  Bike,
   RefreshCw,
   Clock,
   CalendarRange
@@ -27,52 +25,25 @@ type DatePeriod = 'today' | 'yesterday' | 'week' | 'month' | '3months' | 'year' 
 
 interface SalesData {
   summary: {
-    totalRevenue: string;
+    totalRevenue: number;
     totalOrders: number;
-    dineInOrders: number;
-    takeawayOrders: number;
-    dineInRevenue: string;
-    takeawayRevenue: string;
-    avgOrderValue: string;
-    avgDineInValue: string;
-    avgTakeawayValue: string;
+    averageOrderValue: number;
+    totalDiscount: number;
+    ordersWithDiscount: number;
+    dineIn: { orders: number; revenue: number };
+    takeaway: { orders: number; revenue: number };
+    delivery: { orders: number; revenue: number; deliveryFees: number };
   };
-  todaysSummary?: {
-    revenue: string;
-    orders: number;
-    avgOrderValue: string;
-    topItem: string;
-  };
+  paymentBreakdown: Record<string, number>;
   revenueTrend: Array<{
     date: string;
     total: number;
-    dineIn: number;
+    dine_in: number;
     takeaway: number;
+    delivery: number;
+    count: number;
   }>;
-  topItems: Array<{
-    name: string;
-    quantity: number;
-    revenue: string;
-  }>;
-  todaysItems?: Array<{
-    name: string;
-    quantity: number;
-    revenue: string;
-    category: string;
-    image?: string;
-  }>;
-  orderTypeDistribution: {
-    dineIn: {
-      count: number;
-      revenue: string;
-      percentage: string;
-    };
-    takeaway: {
-      count: number;
-      revenue: string;
-      percentage: string;
-    };
-  };
+  period: { startDate: string; endDate: string };
 }
 
 export default function SalesDashboard() {
@@ -80,8 +51,7 @@ export default function SalesDashboard() {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<DatePeriod>('today');
   const [autoRefresh, setAutoRefresh] = useState(false);
-  
-  // Custom date range states
+
   const [showCustomDates, setShowCustomDates] = useState(false);
   const [customStartDate, setCustomStartDate] = useState(format(subDays(new Date(), 7), 'yyyy-MM-dd'));
   const [customEndDate, setCustomEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -89,19 +59,15 @@ export default function SalesDashboard() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      
       const params = new URLSearchParams();
-      
       if (period === 'custom') {
         params.append('startDate', customStartDate);
         params.append('endDate', customEndDate);
       } else {
         params.append('period', period);
       }
-
       const response = await fetch(`/api/reports/sales?${params}`);
       const result = await response.json();
-
       if (result.success) {
         setData(result.data);
       }
@@ -116,7 +82,6 @@ export default function SalesDashboard() {
     fetchData();
   }, [period, customStartDate, customEndDate]);
 
-  // Auto-refresh for today's data every 30 seconds
   useEffect(() => {
     if (period === 'today' && autoRefresh) {
       const interval = setInterval(fetchData, 30000);
@@ -182,7 +147,6 @@ export default function SalesDashboard() {
       {/* Period Selector & Custom Date Range */}
       <Card>
         <CardContent className="pt-6 space-y-4">
-          {/* Quick Period Tabs */}
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <Tabs value={period} onValueChange={(v) => handlePeriodChange(v as DatePeriod)} className="w-full lg:w-auto">
               <TabsList className="grid grid-cols-4 lg:grid-cols-7 w-full">
@@ -238,7 +202,6 @@ export default function SalesDashboard() {
                     max={customEndDate}
                   />
                 </div>
-                
                 <div className="space-y-2">
                   <Label htmlFor="endDate">To Date</Label>
                   <Input
@@ -250,16 +213,10 @@ export default function SalesDashboard() {
                     max={format(new Date(), 'yyyy-MM-dd')}
                   />
                 </div>
-
-                <Button 
-                  onClick={handleCustomDateApply}
-                  className="w-full md:w-auto"
-                >
+                <Button onClick={handleCustomDateApply} className="w-full md:w-auto">
                   Apply Date Range
                 </Button>
               </div>
-              
-              {/* Date Range Summary */}
               <p className="text-sm text-muted-foreground mt-2">
                 Showing data from <span className="font-semibold">{format(parseISO(customStartDate), 'MMM dd, yyyy')}</span> to <span className="font-semibold">{format(parseISO(customEndDate), 'MMM dd, yyyy')}</span>
               </p>
@@ -268,45 +225,15 @@ export default function SalesDashboard() {
         </CardContent>
       </Card>
 
-      {/* Today's Highlight Banner (Only for today) */}
-      {isToday && data.todaysSummary && (
-        <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0">
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <p className="text-blue-100 text-sm font-medium mb-1">💰 Today's Revenue</p>
-                <p className="text-3xl font-bold">${data.todaysSummary.revenue}</p>
-              </div>
-              <div>
-                <p className="text-blue-100 text-sm font-medium mb-1">📝 Orders</p>
-                <p className="text-3xl font-bold">{data.todaysSummary.orders}</p>
-              </div>
-              <div>
-                <p className="text-blue-100 text-sm font-medium mb-1">📊 Avg Order</p>
-                <p className="text-3xl font-bold">${data.todaysSummary.avgOrderValue}</p>
-              </div>
-              <div>
-                <p className="text-blue-100 text-sm font-medium mb-1">⭐ Top Item</p>
-                <p className="text-xl font-bold truncate">{data.todaysSummary.topItem}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Revenue
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              ${data.summary.totalRevenue}
-            </div>
+            <div className="text-2xl font-bold">${data.summary.totalRevenue}</div>
             <p className="text-xs text-muted-foreground">
               {data.summary.totalOrders} orders • {periodLabels[period]}
             </p>
@@ -315,81 +242,92 @@ export default function SalesDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              🍽️ Dine-In
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">🍽️ Dine-In</CardTitle>
             <UtensilsCrossed className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              ${data.summary.dineInRevenue}
-            </div>
+            <div className="text-2xl font-bold text-blue-600">${data.summary.dineIn.revenue}</div>
             <p className="text-xs text-muted-foreground">
-              {data.summary.dineInOrders} orders • Avg: ${data.summary.avgDineInValue}
+              {data.summary.dineIn.orders} orders
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              📦 Takeaway
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">📦 Takeaway</CardTitle>
             <Package className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
-              ${data.summary.takeawayRevenue}
-            </div>
+            <div className="text-2xl font-bold text-orange-600">${data.summary.takeaway.revenue}</div>
             <p className="text-xs text-muted-foreground">
-              {data.summary.takeawayOrders} orders • Avg: ${data.summary.avgTakeawayValue}
+              {data.summary.takeaway.orders} orders
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        {/* <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Average Order
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Average Order</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              ${data.summary.avgOrderValue}
-            </div>
+            <div className="text-2xl font-bold">${data.summary.averageOrderValue}</div>
+            <p className="text-xs text-muted-foreground">Per order value</p>
+          </CardContent>
+        </Card> */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">🛵 Delivery</CardTitle>
+            <Bike className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">${data.summary.delivery.revenue}</div>
             <p className="text-xs text-muted-foreground">
-              Per order value
+              {data.summary.delivery.orders} orders • Fees: ${data.summary.delivery.deliveryFees}
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Today's Items Sold (Only for today) */}
-      {isToday && data.todaysItems && data.todaysItems.length > 0 && (
+      {/* Delivery Card */}
+      {/* <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ShoppingBag className="h-5 w-5" />
-              Today's Items Sold
-            </CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">🛵 Delivery</CardTitle>
+            <Bike className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <TodayItemsSold items={data.todaysItems} />
+            <div className="text-2xl font-bold text-green-600">${data.summary.delivery.revenue}</div>
+            <p className="text-xs text-muted-foreground">
+              {data.summary.delivery.orders} orders • Fees: ${data.summary.delivery.deliveryFees}
+            </p>
           </CardContent>
         </Card>
-      )}
+      </div> */}
 
       {/* Charts Grid */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Revenue Trend Chart */}
-        {data.revenueTrend.length > 1 && (
+        {period !== "today" && period !== "yesterday" &&data.revenueTrend.length >= 1 && (
           <Card className="md:col-span-2">
             <CardHeader>
               <CardTitle>Revenue Trend - {periodLabels[period]}</CardTitle>
             </CardHeader>
             <CardContent>
-              <RevenueChart data={data.revenueTrend} />
+              {data.revenueTrend.length === 1 ? (
+                <div className="h-[100px] flex items-center justify-center text-muted-foreground text-sm">
+                  Only one day of data available. Add more orders across different days to see a trend.
+                </div>
+              ) : (
+                <RevenueChart data={data.revenueTrend.map(item => ({
+                  ...item,
+                  dineIn: item.dine_in,
+                  total: Number(item.total),
+                  takeaway: Number(item.takeaway),
+                  delivery: Number(item.delivery),
+                }))} />
+              )}
             </CardContent>
           </Card>
         )}
@@ -400,17 +338,33 @@ export default function SalesDashboard() {
             <CardTitle>Order Type Distribution</CardTitle>
           </CardHeader>
           <CardContent>
-            <OrderTypeChart data={data.orderTypeDistribution} />
+            <OrderTypeChart
+              data={{
+                dineIn: { orders: data.summary.dineIn.orders, revenue: data.summary.dineIn.revenue },
+                takeaway: { orders: data.summary.takeaway.orders, revenue: data.summary.takeaway.revenue },
+                delivery: { orders: data.summary.delivery.orders, revenue: data.summary.delivery.revenue },
+              }}
+            />
           </CardContent>
         </Card>
 
-        {/* Top Selling Items */}
+        {/* Payment Breakdown */}
         <Card>
           <CardHeader>
-            <CardTitle>Top Selling Items - {periodLabels[period]}</CardTitle>
+            <CardTitle>Payment Methods</CardTitle>
           </CardHeader>
           <CardContent>
-            <TopSellingItems items={data.topItems} />
+            <div className="space-y-3">
+              {Object.entries(data.paymentBreakdown).map(([method, amount]) => (
+                <div key={method} className="flex justify-between items-center">
+                  <span className="text-sm font-medium">{method}</span>
+                  <span className="text-sm font-bold">${Number(amount).toFixed(2)}</span>
+                </div>
+              ))}
+              {Object.keys(data.paymentBreakdown).length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">No payment data</p>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

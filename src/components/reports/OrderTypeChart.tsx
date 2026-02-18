@@ -1,106 +1,143 @@
-'use client';
+"use client"
+// src/components/reports/OrderTypeChart.tsx
 
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { UtensilsCrossed, Package } from 'lucide-react';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { UtensilsCrossed, Package, Bike } from "lucide-react"
 
-interface OrderTypeData {
-  dineIn: {
-    count: number;
-    revenue: string;
-    percentage: string;
-  };
-  takeaway: {
-    count: number;
-    revenue: string;
-    percentage: string;
-  };
-}
-
-interface Props {
-  data: OrderTypeData;
+interface OrderTypeChartProps {
+  data: {
+    dineIn: { orders: number; revenue: number }
+    takeaway: { orders: number; revenue: number }
+    delivery: { orders: number; revenue: number }
+  }
 }
 
 const COLORS = {
-  dineIn: '#3b82f6',
-  takeaway: '#f97316',
-};
+  "Dine-In": "#3b82f6",
+  Takeaway: "#f97316",
+  Delivery: "#22c55e",
+}
 
-export default function OrderTypeChart({ data }: Props) {
-  const chartData = [
-    { 
-      name: 'Dine-In', 
-      value: data.dineIn.count,
-      revenue: data.dineIn.revenue,
-      percentage: data.dineIn.percentage,
-    },
-    { 
-      name: 'Takeaway', 
-      value: data.takeaway.count,
-      revenue: data.takeaway.revenue,
-      percentage: data.takeaway.percentage,
-    },
-  ];
-
+function StatCard({
+  label,
+  orders,
+  revenue,
+  icon: Icon,
+  color,
+}: {
+  label: string
+  orders: number
+  revenue: number
+  icon: React.ElementType
+  color: string
+}) {
   return (
-    <div className="space-y-4">
-      <ResponsiveContainer width="100%" height={300}>
-        <PieChart>
-          <Pie
-            data={chartData}
-            cx="50%"
-            cy="50%"
-            labelLine={false}
-            label={({ name, percentage }) => `${name} ${percentage}%`}
-            outerRadius={80}
-            fill="#8884d8"
-            dataKey="value"
-          >
-            {chartData.map((entry, index) => (
-              <Cell 
-                key={`cell-${index}`} 
-                fill={index === 0 ? COLORS.dineIn : COLORS.takeaway} 
-              />
-            ))}
-          </Pie>
-          <Tooltip 
-            formatter={(value: number, name: string, props: any) => {
-              return [
-                `${value} orders ($${props.payload.revenue})`,
-                name
-              ];
-            }}
-          />
-        </PieChart>
-      </ResponsiveContainer>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="p-4 bg-blue-50 rounded-lg">
-          <div className="flex items-center gap-2 mb-2">
-            <UtensilsCrossed className="h-5 w-5 text-blue-600" />
-            <span className="font-semibold text-blue-900">Dine-In</span>
-          </div>
-          <p className="text-2xl font-bold text-blue-600">
-            {data.dineIn.count}
-          </p>
-          <p className="text-sm text-blue-700">
-            ${data.dineIn.revenue} • {data.dineIn.percentage}%
-          </p>
-        </div>
-
-        <div className="p-4 bg-orange-50 rounded-lg">
-          <div className="flex items-center gap-2 mb-2">
-            <Package className="h-5 w-5 text-orange-600" />
-            <span className="font-semibold text-orange-900">Takeaway</span>
-          </div>
-          <p className="text-2xl font-bold text-orange-600">
-            {data.takeaway.count}
-          </p>
-          <p className="text-sm text-orange-700">
-            ${data.takeaway.revenue} • {data.takeaway.percentage}%
-          </p>
-        </div>
+    <div className={`flex items-start gap-3 p-3 rounded-lg bg-opacity-10`} style={{ backgroundColor: `${color}15` }}>
+      <div className="rounded-full p-2" style={{ backgroundColor: `${color}20` }}>
+        <Icon className="h-4 w-4" style={{ color }} />
+      </div>
+      <div>
+        <p className="text-xs font-medium text-gray-500">{label}</p>
+        <p className="text-sm font-bold text-gray-900">{orders} orders</p>
+        <p className="text-xs text-gray-600">${revenue.toFixed(2)}</p>
       </div>
     </div>
-  );
+  )
+}
+
+export default function OrderTypeChart({ data }: OrderTypeChartProps) {
+  const chartData = [
+    { name: "Dine-In", value: data.dineIn.orders, revenue: data.dineIn.revenue },
+    { name: "Takeaway", value: data.takeaway.orders, revenue: data.takeaway.revenue },
+    { name: "Delivery", value: data.delivery.orders, revenue: data.delivery.revenue },
+  ].filter((d) => d.value > 0)
+
+  const total = chartData.reduce((sum, d) => sum + d.value, 0)
+
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload?.[0]) {
+      const item = payload[0].payload
+      const pct = total > 0 ? ((item.value / total) * 100).toFixed(1) : "0"
+      return (
+        <div className="bg-white border rounded-lg shadow-sm p-3 text-sm">
+          <p className="font-semibold">{item.name}</p>
+          <p className="text-gray-600">{item.value} orders ({pct}%)</p>
+          <p className="text-gray-600">${item.revenue.toFixed(2)} revenue</p>
+        </div>
+      )
+    }
+    return null
+  }
+
+  if (total === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Order Type Distribution</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center h-40 text-gray-400 text-sm">
+          No order data yet
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Order Type Distribution</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <ResponsiveContainer width="100%" height={200}>
+          <PieChart>
+            <Pie
+              data={chartData}
+              cx="50%"
+              cy="50%"
+              innerRadius={55}
+              outerRadius={85}
+              paddingAngle={3}
+              dataKey="value"
+            >
+              {chartData.map((entry) => (
+                <Cell key={entry.name} fill={COLORS[entry.name as keyof typeof COLORS]} />
+              ))}
+            </Pie>
+            <Tooltip content={<CustomTooltip />} />
+            <Legend
+              formatter={(value) => (
+                <span className="text-xs text-gray-600">{value}</span>
+              )}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+
+        {/* Stat Cards */}
+        <div className="grid grid-cols-3 gap-2">
+          <StatCard
+            label="Dine-In"
+            orders={data.dineIn.orders}
+            revenue={data.dineIn.revenue}
+            icon={UtensilsCrossed}
+            color="#3b82f6"
+          />
+          <StatCard
+            label="Takeaway"
+            orders={data.takeaway.orders}
+            revenue={data.takeaway.revenue}
+            icon={Package}
+            color="#f97316"
+          />
+          <StatCard
+            label="Delivery"
+            orders={data.delivery.orders}
+            revenue={data.delivery.revenue}
+            icon={Bike}
+            color="#22c55e"
+          />
+        </div>
+      </CardContent>
+    </Card>
+  )
 }

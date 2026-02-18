@@ -5,7 +5,7 @@
 import useSWR from "swr"
 import { format } from "date-fns"
 import { Badge } from "@/components/ui/badge"
-import LoadingSpinner  from "@/components/shared/LoadingSpinner"
+import {LoadingSpinner}  from "@/components/shared/LoadingSpinner"
 import { TrendingUp, TrendingDown, RefreshCw, Package } from "lucide-react"
 
 interface StockHistoryProps {

@@ -2,6 +2,7 @@
 
 import { KitchenOrderCard } from "./KitchenOrderCard"
 import { Loader2, ChefHat } from "lucide-react"
+import type { PaymentMethod, PaymentStatus } from "@/types" // adjust the import path to match your project structure
 
 interface OrderItem {
   id: string
@@ -16,16 +17,28 @@ interface OrderItem {
 
 interface KitchenOrder {
   id: string
+  userId: string
   orderNumber: string
-  orderType: "DINE_IN" | "TAKEAWAY"
-  status: string
+  orderType: "DINE_IN" | "TAKEAWAY" | "DELIVERY"
+  status: "PENDING" | "PREPARING" | "READY" | "COMPLETED" | "CANCELLED"
   createdAt: string
+  updatedAt: string
   notes: string | null
+  tableId: string | null
   table: {
     number: number
   } | null
   customerName: string | null
   customerPhone: string | null
+  deliveryAddress: string | null
+  deliveryNote: string | null
+  deliveryFee: number
+  subtotal: number
+  tax: number
+  discount: number
+  total: number
+  paymentMethod: PaymentMethod | null
+  paymentStatus: PaymentStatus
   orderItems: OrderItem[]
 }
 

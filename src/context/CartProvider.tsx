@@ -26,6 +26,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     subtotal: 0,
     tax: 0,
     total: 0,
+    discount: 0,      // ✅ add
+  deliveryFee: 0,
   })
 
   // Fetch tax rate from settings on mount
@@ -138,6 +140,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       subtotal: 0,
       tax: 0,
       total: 0,
+      discount: 0,      // ✅ add
+  deliveryFee: 0,
     })
   }, [])
 

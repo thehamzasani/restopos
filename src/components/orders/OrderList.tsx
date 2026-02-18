@@ -9,7 +9,13 @@ import { toast } from "sonner"
 import useSWR from "swr"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
-
+const DEFAULT_FILTERS = {
+  status: "all",
+  orderType: "all",
+  paymentStatus: "all",
+  startDate: "",
+  endDate: "",
+};
 export function OrderList() {
   const [filters, setFilters] = useState<OrderFilterValues>({
     search: "",
@@ -65,7 +71,7 @@ export function OrderList() {
       </Tabs>
 
       {/* Advanced Filters */}
-      <OrderFilters onFilterChange={setFilters} />
+  <OrderFilters filters={filters} onFilterChange={setFilters} />
 
       {/* Orders Grid */}
       {isLoading ? (
