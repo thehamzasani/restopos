@@ -9,12 +9,13 @@ import { Button } from "@/components/ui/button"
 import { redirect } from "next/navigation"
 import { auth } from "@/lib/auth"
 import Link from "next/link"
-import { 
-  Settings as SettingsIcon, 
-  Receipt, 
-  Percent, 
-  Users, 
+import {
+  Settings as SettingsIcon,
+  Receipt,
+  Percent,
+  Users,
   UtensilsCrossed,
+  Bike,        // ← ADD THIS
   ArrowRight
 } from "lucide-react"
 
@@ -22,12 +23,13 @@ async function getSettings() {
   let settings = await prisma.settings.findFirst()
 
   if (!settings) {
-    // Create default settings if none exist
     settings = await prisma.settings.create({
       data: {
         restaurantName: "My Restaurant",
         taxRate: 10,
         currency: "USD",
+        deliveryFee: 0,           // ← ADD THIS
+        minOrderAmount: 0,        // ← ADD THIS
       },
     })
   }
@@ -42,7 +44,6 @@ export default async function SettingsPage() {
     redirect("/login")
   }
 
-  // Only ADMIN and MANAGER can access settings
   if (!["ADMIN", "MANAGER"].includes(session.user.role)) {
     redirect("/")
   }
@@ -77,6 +78,30 @@ export default async function SettingsPage() {
               </p>
               <Button variant="ghost" size="sm" className="mt-2 w-full justify-between px-0">
                 Manage Tax
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </CardContent>
+          </Card>
+        </Link>
+
+        {/* ✅ ADD THIS - Delivery Settings Quick Card */}
+        <Link href="/dashboard/settings/delivery">
+          <Card className="cursor-pointer transition-colors hover:bg-muted/50">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Delivery Settings
+              </CardTitle>
+              <Bike className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                ${Number(settings.deliveryFee).toFixed(2)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Default delivery fee
+              </p>
+              <Button variant="ghost" size="sm" className="mt-2 w-full justify-between px-0">
+                Manage Delivery
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </CardContent>
@@ -154,7 +179,15 @@ export default async function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <RestaurantSettings initialData={settings} />
+              <RestaurantSettings initialData={{
+                ...settings,
+               
+                email: settings.email ?? undefined,
+                phone: settings.phone ?? undefined,
+                address: settings.address ?? undefined,
+                receiptHeader: settings.receiptHeader ?? undefined,
+                receiptFooter: settings.receiptFooter ?? undefined,
+              }} />
             </CardContent>
           </Card>
         </TabsContent>

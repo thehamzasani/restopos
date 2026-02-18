@@ -1,65 +1,67 @@
+// src/components/orders/OrderStatusBadge.tsx
 import { Badge } from "@/components/ui/badge"
-import { Clock, ChefHat, CheckCircle2, XCircle, Package } from "lucide-react"
+import { OrderStatus } from "@/types"
+import {
+  Clock,
+  ChefHat,
+  CheckCircle2,
+  XCircle,
+  ShoppingBag,
+  Bike,
+} from "lucide-react"
 
 interface OrderStatusBadgeProps {
-  status: string
-  size?: "sm" | "md" | "lg"
+  status: OrderStatus
+  size?: "sm" | "default"
 }
 
-export function OrderStatusBadge({ status, size = "md" }: OrderStatusBadgeProps) {
-  const getStatusConfig = (status: string) => {
-    switch (status) {
-      case "PENDING":
-        return {
-          label: "Pending",
-          className: "bg-yellow-100 text-yellow-800 border-yellow-200",
-          icon: Clock,
-        }
-      case "PREPARING":
-        return {
-          label: "Preparing",
-          className: "bg-blue-100 text-blue-800 border-blue-200",
-          icon: ChefHat,
-        }
-      case "READY":
-        return {
-          label: "Ready",
-          className: "bg-green-100 text-green-800 border-green-200",
-          icon: Package,
-        }
-      case "COMPLETED":
-        return {
-          label: "Completed",
-          className: "bg-gray-100 text-gray-800 border-gray-200",
-          icon: CheckCircle2,
-        }
-      case "CANCELLED":
-        return {
-          label: "Cancelled",
-          className: "bg-red-100 text-red-800 border-red-200",
-          icon: XCircle,
-        }
-      default:
-        return {
-          label: status,
-          className: "bg-gray-100 text-gray-800",
-          icon: Clock,
-        }
-    }
-  }
+const STATUS_CONFIG: Record<
+  OrderStatus,
+  { label: string; icon: React.ElementType; className: string }
+> = {
+  PENDING: {
+    label: "Pending",
+    icon: Clock,
+    className: "bg-yellow-50 text-yellow-700 border-yellow-200",
+  },
+  PREPARING: {
+    label: "Preparing",
+    icon: ChefHat,
+    className: "bg-blue-50 text-blue-700 border-blue-200",
+  },
+  READY: {
+    label: "Ready",
+    icon: ShoppingBag,
+    className: "bg-purple-50 text-purple-700 border-purple-200",
+  },
+  OUT_FOR_DELIVERY: {
+    label: "Out for Delivery",
+    icon: Bike,
+    className: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  },
+  COMPLETED: {
+    label: "Completed",
+    icon: CheckCircle2,
+    className: "bg-green-50 text-green-700 border-green-200",
+  },
+  CANCELLED: {
+    label: "Cancelled",
+    icon: XCircle,
+    className: "bg-red-50 text-red-700 border-red-200",
+  },
+}
 
-  const config = getStatusConfig(status)
+export  function OrderStatusBadge({ status, size = "default" }: OrderStatusBadgeProps) {
+  const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.PENDING
   const Icon = config.icon
-
-  const sizeClasses = {
-    sm: "text-xs px-2 py-0.5",
-    md: "text-sm px-2.5 py-1",
-    lg: "text-base px-3 py-1.5",
-  }
+  const iconSize = size === "sm" ? "h-3 w-3" : "h-3.5 w-3.5"
 
   return (
-    <Badge className={`${config.className} ${sizeClasses[size]} flex items-center gap-1 font-medium`}>
-      <Icon className={size === "sm" ? "h-3 w-3" : "h-4 w-4"} />
+    <Badge
+      variant="outline"
+      className={`font-medium flex items-center gap-1 w-fit ${config.className}`}
+    >
+      <Icon className={iconSize} />
       {config.label}
     </Badge>
   )

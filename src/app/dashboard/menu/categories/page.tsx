@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
 import CategoryCard from "@/components/menu/CategoryCard"
 import CategoryForm from "@/components/menu/CategoryForm"
-import LoadingSpinner from "@/components/shared/LoadingSpinner"
-import EmptyState from "@/components/shared/EmptyState"
+import {LoadingSpinner} from "@/components/shared/LoadingSpinner"
+import {EmptyState} from "@/components/shared/EmptyState"
 import { toast } from "sonner"
 
 export default function CategoriesPage() {
@@ -150,6 +150,7 @@ export default function CategoriesPage() {
                 <LoadingSpinner />
             ) : categories.length === 0 ? (
                 <EmptyState
+                    icon={Plus}
                     title="No categories yet"
                     description="Get started by creating your first category"
                 />

@@ -1,64 +1,65 @@
 // src/lib/validations/settings.ts
-
 import { z } from "zod"
-import { UserRole } from "@prisma/client"
 
-// Restaurant Settings Validation
 export const restaurantSettingsSchema = z.object({
-  restaurantName: z.string().min(1, "Restaurant name is required").max(100),
-  address: z.string().optional().nullable(),
-  phone: z.string().optional().nullable(),
-  email: z.string().email("Invalid email").optional().nullable().or(z.literal("")),
-  currency: z.string().min(1, "Currency is required").max(10),
-  receiptHeader: z.string().optional().nullable(),
-  receiptFooter: z.string().optional().nullable(),
+  restaurantName: z
+    .string()
+    .min(1, "Restaurant name is required")
+    .max(100, "Name must be less than 100 characters"),
+  address: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().email("Invalid email format").optional().or(z.literal("")),
+  currency: z.string().max(10, "Currency code too long").default("USD"),
+  receiptHeader: z.string().optional(),
+  receiptFooter: z.string().optional(),
 })
 
-export type RestaurantSettingsInput = z.infer<typeof restaurantSettingsSchema>
-
-// Tax Settings Validation
 export const taxSettingsSchema = z.object({
-  taxRate: z.coerce
+  taxRate: z
     .number()
-    .min(0, "Tax rate must be at least 0")
-    .max(100, "Tax rate must be at most 100"),
+    .min(0, "Tax rate must be 0 or greater")
+    .max(100, "Tax rate cannot exceed 100%"),
 })
 
-export type TaxSettingsInput = z.infer<typeof taxSettingsSchema>
+export const deliverySettingsSchema = z.object({
+  deliveryFee: z
+    .number()
+    .min(0, "Delivery fee must be 0 or greater"),
+  minOrderAmount: z
+    .number()
+    .min(0, "Minimum order amount must be 0 or greater"),
+})
 
-// User Validation
 export const createUserSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   email: z.string().email("Invalid email"),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  role: z.nativeEnum(UserRole),
-  isActive: z.boolean().default(true),
+  role: z.enum(["ADMIN", "MANAGER", "CASHIER", "KITCHEN"]),
 })
-
-export type CreateUserInput = z.infer<typeof createUserSchema>
 
 export const updateUserSchema = z.object({
-  name: z.string().min(1, "Name is required").max(100).optional(),
-  email: z.string().email("Invalid email").optional(),
-  password: z.string().min(6, "Password must be at least 6 characters").optional(),
-  role: z.nativeEnum(UserRole).optional(),
-  isActive: z.boolean().optional(),
+  name: z.string().min(1, "Name is required").max(100),
+  email: z.string().email("Invalid email"),
+  role: z.enum(["ADMIN", "MANAGER", "CASHIER", "KITCHEN"]),
+  isActive: z.boolean(),
+  password: z.string().min(6).optional().or(z.literal("")),
 })
 
-export type UpdateUserInput = z.infer<typeof updateUserSchema>
-
-// Table Validation
 export const createTableSchema = z.object({
-  number: z.coerce.number().int().min(1, "Table number must be at least 1"),
-  capacity: z.coerce.number().int().min(1, "Capacity must be at least 1"),
+  number: z.number().int().positive("Table number must be positive"),
+  capacity: z.number().int().positive("Capacity must be positive"),
 })
-
-export type CreateTableInput = z.infer<typeof createTableSchema>
 
 export const updateTableSchema = z.object({
-  number: z.coerce.number().int().min(1, "Table number must be at least 1").optional(),
-  capacity: z.coerce.number().int().min(1, "Capacity must be at least 1").optional(),
-  status: z.enum(["AVAILABLE", "OCCUPIED", "RESERVED"]).optional(),
+  number: z.number().int().positive("Table number must be positive"),
+  capacity: z.number().int().positive("Capacity must be positive"),
+  status: z.enum(["AVAILABLE", "OCCUPIED", "RESERVED"]),
 })
 
+export type RestaurantSettingsInput = z.infer<typeof restaurantSettingsSchema>
+export type TaxSettingsInput = z.infer<typeof taxSettingsSchema>
+export type DeliverySettingsInput = z.infer<typeof deliverySettingsSchema>
+export type CreateUserInput = z.infer<typeof createUserSchema>
+export type UpdateUserInput = z.infer<typeof updateUserSchema>
+export type CreateTableInput = z.infer<typeof createTableSchema>
 export type UpdateTableInput = z.infer<typeof updateTableSchema>

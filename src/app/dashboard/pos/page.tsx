@@ -1,212 +1,254 @@
 "use client"
+// src/app/(dashboard)/pos/page.tsx
 
 import { useState } from "react"
+import { OrderType, OrderSetup, Table } from "@/types"
 import OrderTypeSelector from "@/components/pos/OrderTypeSelector"
-import { TableSelector } from "@/components/pos/TableSelector"
+import {TableSelector} from "@/components/pos/TableSelector"
 import CustomerDetailsForm from "@/components/pos/CustomerDetailsForm"
-import { MenuGrid } from "@/components/pos/MenuGrid"
-import { Cart } from "@/components/pos/Cart"
-import { Card, CardContent } from "@/components/ui/card"
+import DeliveryDetailsForm from "@/components/pos/Deliverydetailsform"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { UtensilsCrossed, Package, ArrowLeft } from "lucide-react"
-import { useCart } from "@/hooks/useCart"
-import { Table } from "@/types"
+import { UtensilsCrossed, Package, Bike } from "lucide-react"
+import {MenuGrid} from "@/components/pos/MenuGrid"
+import { Cart } from "@/components/pos/Cart"
+import { CartProvider, useCart } from "@/context/CartContext"
 
-type PosStep = "ORDER_TYPE" | "TABLE_SELECTION" | "CUSTOMER_DETAILS" | "MENU"
+type PosStep =
+  | "ORDER_TYPE"
+  | "TABLE_SELECTION"
+  | "CUSTOMER_DETAILS"
+  | "DELIVERY_DETAILS"
+  | "MENU"
 
-export default function POSPage() {
-  const [currentStep, setCurrentStep] = useState<PosStep>("ORDER_TYPE")
-  const { cart, setOrderSetup } = useCart()
-  const orderSetup = cart.orderSetup
+// ─── Small badge in the top bar showing current order context ─────────────────
 
-  // Step 1: Order Type Selection
-  const handleOrderTypeSelect = (orderType: "DINE_IN" | "TAKEAWAY") => {
-    setOrderSetup({
-      orderType,
-    })
-
-    if (orderType === "DINE_IN") {
-      setCurrentStep("TABLE_SELECTION")
-    } else {
-      setCurrentStep("CUSTOMER_DETAILS")
-    }
+function OrderTypeBadge({ setup }: { setup: OrderSetup }) {
+  if (setup.orderType === "DINE_IN") {
+    return (
+      <Badge className="bg-blue-100 text-blue-700 border-blue-200 flex items-center gap-1">
+        <UtensilsCrossed className="h-3 w-3" />
+        {setup.tableName ?? "Dine-In"}
+      </Badge>
+    )
   }
+  if (setup.orderType === "TAKEAWAY") {
+    return (
+      <Badge className="bg-orange-100 text-orange-700 border-orange-200 flex items-center gap-1">
+        <Package className="h-3 w-3" />
+        {setup.customerName ? `Takeaway · ${setup.customerName}` : "Takeaway"}
+      </Badge>
+    )
+  }
+  return (
+    <Badge className="bg-green-100 text-green-700 border-green-200 flex items-center gap-1">
+      <Bike className="h-3 w-3" />
+      {setup.customerName ? `Delivery · ${setup.customerName}` : "Delivery"}
+    </Badge>
+  )
+}
 
-  // Step 2A: Table Selection (Dine-In)
-  // ✅ FIXED: Now accepts Table object instead of two separate parameters
-  const handleTableSelect = (table: Table) => {
-    setOrderSetup({
-      ...orderSetup!,
-      tableId: table.id,
-      tableName: `Table ${table.number}`,
-    })
+// ─── Step indicator ───────────────────────────────────────────────────────────
+
+function StepIndicator({ currentStep }: { currentStep: PosStep }) {
+  const steps = [
+    { key: "ORDER_TYPE", label: "Order Type" },
+    { key: "SETUP", label: "Setup" },
+    { key: "MENU", label: "Menu & Cart" },
+  ]
+
+  const activeIndex =
+    currentStep === "ORDER_TYPE" ? 0 : currentStep === "MENU" ? 2 : 1
+
+  return (
+    <div className="flex items-center gap-2 justify-center">
+      {steps.map((step, i) => (
+        <div key={step.key} className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <div
+              className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-medium ${
+                i <= activeIndex
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-500"
+              }`}
+            >
+              {i + 1}
+            </div>
+            <span
+              className={`text-sm ${
+                i === activeIndex ? "font-medium text-gray-900" : "text-gray-400"
+              }`}
+            >
+              {step.label}
+            </span>
+          </div>
+          {i < steps.length - 1 && (
+            <div
+              className={`h-px w-8 ${i < activeIndex ? "bg-blue-600" : "bg-gray-200"}`}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─── Inner content — must be inside CartProvider so it can call useCart ───────
+
+function POSContent() {
+  const [currentStep, setCurrentStep] = useState<PosStep>("ORDER_TYPE")
+  const [orderSetup, setOrderSetupState] = useState<OrderSetup | null>(null)
+
+  // Access cart context so we can sync orderSetup into it before the menu step
+  const { setOrderSetup: syncToCart } = useCart()
+
+  const goToMenu = (setup: OrderSetup) => {
+    setOrderSetupState(setup)
+    syncToCart(setup)   // ← keeps CheckoutModal (which reads cart.orderSetup) in sync
     setCurrentStep("MENU")
   }
 
-  // Step 2B: Customer Details (Takeaway)
+  const handleOrderTypeSelect = (orderType: OrderType) => {
+    const base: OrderSetup = { orderType }
+    setOrderSetupState(base)
+    if (orderType === "DINE_IN") setCurrentStep("TABLE_SELECTION")
+    else if (orderType === "TAKEAWAY") setCurrentStep("CUSTOMER_DETAILS")
+    else setCurrentStep("DELIVERY_DETAILS")
+  }
+
+  const handleTableSelect = (table: Table) => {
+    const setup: OrderSetup = {
+      orderType: "DINE_IN",
+      tableId: table.id,
+      tableName: `Table ${table.number}`,
+    }
+    goToMenu(setup)
+  }
+
   const handleCustomerDetailsSubmit = (data: {
     customerName?: string
     customerPhone?: string
   }) => {
-    setOrderSetup({
-      ...orderSetup!,
+    const setup: OrderSetup = {
+      orderType: "TAKEAWAY",
       customerName: data.customerName,
       customerPhone: data.customerPhone,
-    })
-    setCurrentStep("MENU")
+    }
+    goToMenu(setup)
   }
 
-  const handleCustomerDetailsSkip = () => {
-    setCurrentStep("MENU")
+  const handleDeliveryDetailsSubmit = (data: {
+    customerName?: string
+    customerPhone?: string
+    deliveryAddress: string
+    deliveryNote?: string
+    deliveryFee: number
+  }) => {
+    const setup: OrderSetup = {
+      orderType: "DELIVERY",
+      customerName: data.customerName,
+      customerPhone: data.customerPhone,
+      deliveryAddress: data.deliveryAddress,
+      deliveryNote: data.deliveryNote,
+      deliveryFee: data.deliveryFee,
+    }
+    goToMenu(setup)
   }
 
-  // Back handlers
-  const handleBackFromTable = () => {
-    setOrderSetup({
-      orderType: orderSetup!.orderType,
-    })
-    setCurrentStep("ORDER_TYPE")
-  }
-
-  const handleBackFromCustomer = () => {
-    setOrderSetup({
-      orderType: orderSetup!.orderType,
-    })
-    setCurrentStep("ORDER_TYPE")
-  }
-
-  const handleBackFromMenu = () => {
-    if (orderSetup?.orderType === "DINE_IN") {
-      setCurrentStep("TABLE_SELECTION")
-    } else {
-      setCurrentStep("CUSTOMER_DETAILS")
+  const handleBack = () => {
+    if (
+      currentStep === "TABLE_SELECTION" ||
+      currentStep === "CUSTOMER_DETAILS" ||
+      currentStep === "DELIVERY_DETAILS"
+    ) {
+      setCurrentStep("ORDER_TYPE")
+    } else if (currentStep === "MENU") {
+      const orderType = orderSetup?.orderType
+      if (orderType === "DINE_IN") setCurrentStep("TABLE_SELECTION")
+      else if (orderType === "TAKEAWAY") setCurrentStep("CUSTOMER_DETAILS")
+      else setCurrentStep("DELIVERY_DETAILS")
     }
   }
 
-  const handleStartNewOrder = () => {
-    setOrderSetup({
-      orderType: "DINE_IN",
-    })
-    setCurrentStep("ORDER_TYPE")
-  }
-
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Point of Sale</h1>
-        <p className="text-gray-500">Create new orders for dine-in or takeaway</p>
+    <div className="flex flex-col h-full">
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-6 py-3 border-b bg-white">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Point of Sale</h1>
+          <p className="text-xs text-gray-500">Create a new order</p>
+        </div>
+        <div className="flex items-center gap-4">
+          {orderSetup && <OrderTypeBadge setup={orderSetup} />}
+          <StepIndicator currentStep={currentStep} />
+        </div>
       </div>
 
-      {/* Order Setup Indicator */}
-      {orderSetup && currentStep !== "ORDER_TYPE" && (
-        <Card className="bg-blue-50 border-blue-200">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {orderSetup.orderType === "DINE_IN" ? (
-                  <div className="flex items-center gap-2">
-                    <UtensilsCrossed className="h-5 w-5 text-blue-600" />
-                    <Badge className="bg-blue-600">Dine-In</Badge>
-                    {orderSetup.tableName && (
-                      <span className="text-sm text-gray-700">
-                        • {orderSetup.tableName}
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <Package className="h-5 w-5 text-orange-600" />
-                    <Badge className="bg-orange-600">Takeaway</Badge>
-                    {orderSetup.customerName && (
-                      <span className="text-sm text-gray-700">
-                        • {orderSetup.customerName}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
+      {/* Step content */}
+      <div className="flex-1 overflow-auto">
+        {currentStep === "ORDER_TYPE" && (
+          <div className="p-8">
+            <OrderTypeSelector onSelect={handleOrderTypeSelect} />
+          </div>
+        )}
 
-              {currentStep === "MENU" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleStartNewOrder}
-                >
-                  Start New Order
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        {currentStep === "TABLE_SELECTION" && (
+          <div className="p-8">
+            <TableSelector onSelect={handleTableSelect} onBack={handleBack} />
+          </div>
+        )}
 
-      {/* Main Content */}
-      {currentStep === "ORDER_TYPE" && (
-        <OrderTypeSelector onSelect={handleOrderTypeSelect} />
-      )}
+        {currentStep === "CUSTOMER_DETAILS" && (
+          <div className="p-8">
+            <CustomerDetailsForm
+              onSubmit={handleCustomerDetailsSubmit}
+              onBack={handleBack}
+              onSkip={() => handleCustomerDetailsSubmit({})}
+            />
+          </div>
+        )}
 
-      {currentStep === "TABLE_SELECTION" && (
-        <div className="space-y-4">
-          <Button
-            variant="outline"
-            onClick={handleBackFromTable}
-            className="gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Order Type
-          </Button>
-          <TableSelector
-            onSelect={handleTableSelect}
-            onBack={handleBackFromTable}
-          />
-        </div>
-      )}
+        {currentStep === "DELIVERY_DETAILS" && (
+          <div className="p-8">
+            <DeliveryDetailsForm
+              onSubmit={handleDeliveryDetailsSubmit}
+              onBack={handleBack}
+            />
+          </div>
+        )}
 
-      {currentStep === "CUSTOMER_DETAILS" && (
-        <div className="space-y-4">
-          <Button
-            variant="outline"
-            onClick={handleBackFromCustomer}
-            className="gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Order Type
-          </Button>
-          <CustomerDetailsForm
-            onSubmit={handleCustomerDetailsSubmit}
-            onBack={handleBackFromCustomer}
-            onSkip={handleCustomerDetailsSkip}
-          />
-        </div>
-      )}
-
-      {currentStep === "MENU" && (
-        <div className="space-y-4">
-          <Button
-            variant="outline"
-            onClick={handleBackFromMenu}
-            className="gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-
-          {/* Split Layout: Menu (70%) + Cart (30%) */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Menu Grid - 2 columns on large screens */}
-            <div className="lg:col-span-2">
+        {currentStep === "MENU" && orderSetup && (
+          <div className="flex h-full">
+            {/* Menu grid */}
+            <div className="flex-1 overflow-auto p-4">
               <MenuGrid />
             </div>
-
-            {/* Cart - 1 column on large screens, sticky on desktop */}
-            <div className="lg:sticky lg:top-6 lg:h-[calc(100vh-8rem)]">
-              <Cart />
+            {/* Cart sidebar */}
+            <div className="w-96 border-l bg-white flex flex-col overflow-hidden">
+              <Cart
+                orderSetup={orderSetup}
+                onBack={handleBack}
+                onOrderComplete={() => {
+                  setCurrentStep("ORDER_TYPE")
+                  setOrderSetupState(null)
+                }}
+              />
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
+  )
+}
+
+// ─── Page — wraps POSContent in CartProvider ──────────────────────────────────
+
+export default function POSPage() {
+  return (
+    <CartProvider>
+      <div className="h-full flex flex-col">
+        <POSContent />
+      </div>
+    </CartProvider>
   )
 }

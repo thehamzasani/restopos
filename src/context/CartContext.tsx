@@ -1,229 +1,288 @@
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { createOrderSchema } from "@/lib/validations/order"
+"use client"
+// src/context/CartContext.tsx
 
-// GET /api/orders - Get all orders
-export async function GET(request: NextRequest) {
-  try {
-    const session = await auth()
-    if (!session) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
+import React, { createContext, useContext, useReducer, useCallback, useEffect } from "react"
+import { CartItem, CartState, OrderSetup } from "@/types"
 
-    const { searchParams } = new URL(request.url)
-    const status = searchParams.get("status")
-    const orderType = searchParams.get("orderType")
-    const tableId = searchParams.get("tableId")
-    const paymentStatus = searchParams.get("paymentStatus")
-    const search = searchParams.get("search")
-    const startDate = searchParams.get("startDate")
-    const endDate = searchParams.get("endDate")
+interface CartContextType {
+  cart: CartState
+  taxRate: number
+  addItem: (item: Omit<CartItem, "id">) => void
+  removeItem: (id: string) => void
+  updateQuantity: (id: string, quantity: number) => void
+  updateItemNotes: (id: string, notes: string) => void
+  clearCart: () => void
+  setOrderSetup: (setup: OrderSetup) => void
+  applyDiscount: (amount: number) => void
+  applyDiscountPercent: (percent: number) => void
+  clearDiscount: () => void
+  setDeliveryFee: (fee: number) => void
+}
 
-    // Build where clause
-    const where: any = {}
+// ─── Internal state shape ────────────────────────────────────────────────────
 
-    if (status && status !== "all") {
-      where.status = status
-    }
+interface InternalState {
+  items: CartItem[]
+  orderSetup: OrderSetup | null
+  discount: number
+  deliveryFee: number
+  taxRate: number
+}
 
-    if (orderType && orderType !== "all") {
-      where.orderType = orderType
-    }
+// ─── Actions ─────────────────────────────────────────────────────────────────
 
-    if (tableId) {
-      where.tableId = tableId
-    }
+type Action =
+  | { type: "ADD_ITEM"; payload: Omit<CartItem, "id"> }
+  | { type: "REMOVE_ITEM"; payload: string }
+  | { type: "UPDATE_QUANTITY"; payload: { id: string; quantity: number } }
+  | { type: "UPDATE_NOTES"; payload: { id: string; notes: string } }
+  | { type: "SET_ORDER_SETUP"; payload: OrderSetup }
+  | { type: "SET_DISCOUNT"; payload: number }
+  | { type: "SET_DELIVERY_FEE"; payload: number }
+  | { type: "SET_TAX_RATE"; payload: number }
+  | { type: "CLEAR" }
 
-    if (paymentStatus && paymentStatus !== "all") {
-      where.paymentStatus = paymentStatus
-    }
+// ─── Totals helper ───────────────────────────────────────────────────────────
 
-    if (search) {
-      where.orderNumber = {
-        contains: search,
-        mode: "insensitive",
-      }
-    }
+function round(n: number) {
+  return Math.round(n * 100) / 100
+}
 
-    if (startDate || endDate) {
-      where.createdAt = {}
-      if (startDate) where.createdAt.gte = new Date(startDate)
-      if (endDate) where.createdAt.lte = new Date(endDate)
-    }
+function computeTotals(
+  items: CartItem[],
+  taxRate: number,
+  discount: number,
+  deliveryFee: number
+): Pick<CartState, "subtotal" | "tax" | "discount" | "deliveryFee" | "total"> {
+  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const safeDiscount = Math.min(discount, subtotal)
+  const taxableAmount = subtotal - safeDiscount
+  const tax = taxableAmount * (taxRate / 100)
+  const total = taxableAmount + tax + deliveryFee
 
-    const orders = await prisma.order.findMany({
-      where,
-      include: {
-        table: {
-          select: { id: true, number: true },
-        },
-        user: {
-          select: { id: true, name: true },
-        },
-        orderItems: {
-          select: { id: true, quantity: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    })
-
-    // Serialize Decimal fields to numbers
-    const serializedOrders = orders.map((order) => ({
-      ...order,
-      subtotal: Number(order.subtotal),
-      tax: Number(order.tax),
-      discount: Number(order.discount),
-      total: Number(order.total),
-    }))
-
-    return NextResponse.json({ success: true, data: serializedOrders })
-  } catch (error) {
-    console.error("Error fetching orders:", error)
-    return NextResponse.json(
-      { success: false, error: "Failed to fetch orders" },
-      { status: 500 }
-    )
+  return {
+    subtotal: round(subtotal),
+    discount: round(safeDiscount),
+    tax: round(tax),
+    deliveryFee: round(deliveryFee),
+    total: round(total),
   }
 }
 
-// POST /api/orders - Create new order
-export async function POST(request: NextRequest) {
-  try {
-    const session = await auth()
+// ─── Reducer ─────────────────────────────────────────────────────────────────
 
-    if (!session) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
+const initialState: InternalState = {
+  items: [],
+  orderSetup: null,
+  discount: 0,
+  deliveryFee: 0,
+  taxRate: 10,
+}
+
+function reducer(state: InternalState, action: Action): InternalState {
+  switch (action.type) {
+    case "ADD_ITEM": {
+      // If same menuItemId with no special notes, just increment quantity
+      const existing = state.items.find(
+        (i) => i.menuItemId === action.payload.menuItemId && !action.payload.notes
       )
+      const items = existing
+        ? state.items.map((i) =>
+            i.menuItemId === action.payload.menuItemId && !action.payload.notes
+              ? { ...i, quantity: i.quantity + action.payload.quantity }
+              : i
+          )
+        : [
+            ...state.items,
+            {
+              ...action.payload,
+              id: `${Date.now()}-${Math.random()}`,
+            },
+          ]
+      return { ...state, items }
     }
 
-    const body = await request.json()
-    const validatedData = createOrderSchema.parse(body)
+    case "REMOVE_ITEM":
+      return {
+        ...state,
+        items: state.items.filter((i) => i.id !== action.payload),
+      }
 
-    // ✅ Get tax rate from settings (not hardcoded!)
-    const settings = await prisma.settings.findFirst()
-    const taxRate = Number(settings?.taxRate ?? 10) // fallback to 10 if no settings
-
-    // Calculate subtotal from items
-    const subtotal = validatedData.items.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    )
-
-    // ✅ Use tax rate from settings
-    const tax = (subtotal * taxRate) / 100
-    const total = subtotal + tax - validatedData.discount
-
-    // Generate order number
-    const orderCount = await prisma.order.count()
-    const orderNumber = `ORD${String(orderCount + 1).padStart(6, "0")}`
-
-    // Check if table already has an active order (dine-in)
-    if (validatedData.orderType === "DINE_IN" && validatedData.tableId) {
-      const existingOrder = await prisma.order.findFirst({
-        where: {
-          tableId: validatedData.tableId,
-          status: { in: ["PENDING", "PREPARING", "READY"] },
-        },
-      })
-
-      if (existingOrder) {
-        // Add items to existing order
-        const existingSubtotal = Number(existingOrder.subtotal)
-        const newSubtotal = existingSubtotal + subtotal
-        // ✅ Use tax rate from settings for existing order update too
-        const newTax = (newSubtotal * taxRate) / 100
-        const newTotal = newSubtotal + newTax - validatedData.discount
-
-        const updatedOrder = await prisma.order.update({
-          where: { id: existingOrder.id },
-          data: {
-            subtotal: newSubtotal,
-            tax: newTax,
-            total: newTotal,
-            orderItems: {
-              createMany: {
-                data: validatedData.items.map((item) => ({
-                  menuItemId: item.menuItemId,
-                  quantity: item.quantity,
-                  price: item.price,
-                  subtotal: item.price * item.quantity,
-                  notes: item.notes,
-                })),
-              },
-            },
-          },
-          include: {
-            orderItems: { include: { menuItem: true } },
-            table: true,
-            user: true,
-          },
-        })
-
-        return NextResponse.json({
-          success: true,
-          data: updatedOrder,
-          isUpdated: true,
-          message: `Items added to existing order ${existingOrder.orderNumber}`,
-        })
+    case "UPDATE_QUANTITY": {
+      const { id, quantity } = action.payload
+      if (quantity <= 0) {
+        return { ...state, items: state.items.filter((i) => i.id !== id) }
+      }
+      return {
+        ...state,
+        items: state.items.map((i) => (i.id === id ? { ...i, quantity } : i)),
       }
     }
 
-    // Create new order
-    const order = await prisma.order.create({
-      data: {
-        orderNumber,
-        orderType: validatedData.orderType,
-        tableId: validatedData.tableId,
-        customerName: validatedData.customerName,
-        customerPhone: validatedData.customerPhone,
-        userId: session.user.id,
-        subtotal,
-        tax,
-        discount: validatedData.discount,
-        total,
-        notes: validatedData.notes,
-        status: "PENDING",
-        paymentMethod: validatedData.paymentMethod,
-        paymentStatus: validatedData.paymentMethod ? "PAID" : "PENDING",
-        orderItems: {
-          createMany: {
-            data: validatedData.items.map((item) => ({
-              menuItemId: item.menuItemId,
-              quantity: item.quantity,
-              price: item.price,
-              subtotal: item.price * item.quantity,
-              notes: item.notes,
-            })),
-          },
-        },
-      },
-      include: {
-        orderItems: { include: { menuItem: true } },
-        table: true,
-        user: true,
-      },
-    })
+    case "UPDATE_NOTES":
+      return {
+        ...state,
+        items: state.items.map((i) =>
+          i.id === action.payload.id ? { ...i, notes: action.payload.notes } : i
+        ),
+      }
 
-    // Update table status to OCCUPIED for dine-in
-    if (validatedData.tableId) {
-      await prisma.table.update({
-        where: { id: validatedData.tableId },
-        data: { status: "OCCUPIED" },
-      })
+    case "SET_ORDER_SETUP": {
+      const setup = action.payload
+      // Determine the correct deliveryFee from the setup
+      let newDeliveryFee: number
+      if (setup.orderType === "DELIVERY") {
+        // Use the fee from the setup if provided, otherwise keep existing
+        newDeliveryFee = setup.deliveryFee !== undefined ? setup.deliveryFee : state.deliveryFee
+      } else {
+        // Non-delivery orders have no delivery fee
+        newDeliveryFee = 0
+      }
+      return {
+        ...state,
+        orderSetup: setup,
+        deliveryFee: newDeliveryFee,
+      }
     }
 
-    return NextResponse.json({ success: true, data: order })
-  } catch (error: any) {
-    console.error("Error creating order:", error)
-    return NextResponse.json(
-      { success: false, error: error.message || "Failed to create order" },
-      { status: 500 }
-    )
+    case "SET_DISCOUNT":
+      return { ...state, discount: Math.max(0, action.payload) }
+
+    case "SET_DELIVERY_FEE":
+      return { ...state, deliveryFee: Math.max(0, action.payload) }
+
+    case "SET_TAX_RATE":
+      return { ...state, taxRate: action.payload }
+
+    case "CLEAR":
+      return initialState
+
+    default:
+      return state
   }
+}
+
+// ─── Build the public CartState from internal state ───────────────────────────
+
+function buildCartState(state: InternalState): CartState {
+  const totals = computeTotals(
+    state.items,
+    state.taxRate,
+    state.discount,
+    state.deliveryFee
+  )
+  return {
+    items: state.items,
+    orderSetup: state.orderSetup,
+    subtotal: totals.subtotal,
+    discount: totals.discount,
+    tax: totals.tax,
+    deliveryFee: totals.deliveryFee,
+    total: totals.total,
+  }
+}
+
+// ─── Context ──────────────────────────────────────────────────────────────────
+
+const CartContext = createContext<CartContextType | undefined>(undefined)
+
+// ─── Provider ────────────────────────────────────────────────────────────────
+
+export function CartProvider({ children }: { children: React.ReactNode }) {
+  const [state, dispatch] = useReducer(reducer, initialState)
+
+  // Fetch tax rate from settings API on mount
+  useEffect(() => {
+    const fetchTaxRate = async () => {
+      try {
+        const res = await fetch("/api/settings/tax")
+        const result = await res.json()
+        if (result.success && result.data?.taxRate !== undefined) {
+          dispatch({ type: "SET_TAX_RATE", payload: Number(result.data.taxRate) })
+        }
+      } catch {
+        // Fall back to default 10% — no action needed
+      }
+    }
+    fetchTaxRate()
+  }, [])
+
+  const cart = buildCartState(state)
+
+  const addItem = useCallback((item: Omit<CartItem, "id">) => {
+    dispatch({ type: "ADD_ITEM", payload: item })
+  }, [])
+
+  const removeItem = useCallback((id: string) => {
+    dispatch({ type: "REMOVE_ITEM", payload: id })
+  }, [])
+
+  const updateQuantity = useCallback((id: string, quantity: number) => {
+    dispatch({ type: "UPDATE_QUANTITY", payload: { id, quantity } })
+  }, [])
+
+  const updateItemNotes = useCallback((id: string, notes: string) => {
+    dispatch({ type: "UPDATE_NOTES", payload: { id, notes } })
+  }, [])
+
+  const clearCart = useCallback(() => {
+    dispatch({ type: "CLEAR" })
+  }, [])
+
+  const setOrderSetup = useCallback((setup: OrderSetup) => {
+    dispatch({ type: "SET_ORDER_SETUP", payload: setup })
+  }, [])
+
+  const applyDiscount = useCallback((amount: number) => {
+    dispatch({ type: "SET_DISCOUNT", payload: amount })
+  }, [])
+
+  const applyDiscountPercent = useCallback(
+    (percent: number) => {
+      // Use the current subtotal to calculate the fixed amount
+      const subtotal = buildCartState(state).subtotal
+      const amount = (subtotal * percent) / 100
+      dispatch({ type: "SET_DISCOUNT", payload: amount })
+    },
+    [state]
+  )
+
+  const clearDiscount = useCallback(() => {
+    dispatch({ type: "SET_DISCOUNT", payload: 0 })
+  }, [])
+
+  const setDeliveryFee = useCallback((fee: number) => {
+    dispatch({ type: "SET_DELIVERY_FEE", payload: fee })
+  }, [])
+
+  return (
+    <CartContext.Provider
+      value={{
+        cart,
+        taxRate: state.taxRate,
+        addItem,
+        removeItem,
+        updateQuantity,
+        updateItemNotes,
+        clearCart,
+        setOrderSetup,
+        applyDiscount,
+        applyDiscountPercent,
+        clearDiscount,
+        setDeliveryFee,
+      }}
+    >
+      {children}
+    </CartContext.Provider>
+  )
+}
+
+// ─── Hook ─────────────────────────────────────────────────────────────────────
+
+export function useCart() {
+  const context = useContext(CartContext)
+  if (context === undefined) {
+    throw new Error("useCart must be used within a CartProvider")
+  }
+  return context
 }
