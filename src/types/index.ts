@@ -140,9 +140,9 @@ export interface Order {
   createdAt: Date
   updatedAt: Date
   table?: {
-    id: string
+    id?: string
     number: number
-  }
+  } | null
   user?: {
     id: string
     name: string

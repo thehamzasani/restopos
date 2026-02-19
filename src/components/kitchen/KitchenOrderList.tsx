@@ -2,18 +2,18 @@
 
 import { KitchenOrderCard } from "./KitchenOrderCard"
 import { Loader2, ChefHat } from "lucide-react"
-import type { PaymentMethod, PaymentStatus } from "@/types" // adjust the import path to match your project structure
+import type { PaymentMethod, PaymentStatus, OrderItem  } from "@/types" // adjust the import path to match your project structure
 
-interface OrderItem {
-  id: string
-  quantity: number
-  notes: string | null
-  menuItem: {
-    id: string
-    name: string
-    image: string | null
-  }
-}
+// interface OrderItem {
+//   id: string
+//   quantity: number
+//   notes: string | null
+//   menuItem: {
+//     id: string
+//     name: string
+//     image: string | null
+//   }
+// }
 
 interface KitchenOrder {
   id: string
@@ -83,7 +83,16 @@ export function KitchenOrderList({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {orders.map((order) => (
-        <KitchenOrderCard key={order.id} order={order} onStatusChange={onRefresh} />
+    <KitchenOrderCard 
+  key={order.id} 
+  order={{ 
+    ...order, 
+    createdAt: new Date(order.createdAt),
+    updatedAt: new Date(order.updatedAt),
+    table: order.table ?? undefined,
+  }} 
+  onStatusChange={onRefresh} 
+/>
       ))}
     </div>
   )
