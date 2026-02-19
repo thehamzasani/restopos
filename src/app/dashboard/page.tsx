@@ -686,84 +686,52 @@ async function getDashboardData() {
   const yesterdayStart = startOfDay(subDays(today, 1))
   const yesterdayEnd = endOfDay(subDays(today, 1))
 
-  const [
-    todayOrders,
-    yesterdayOrders,
-    pendingOrders,
-    preparingOrders,
-    readyOrders,
-    outForDeliveryOrders,
-    activeTables,
-    totalTables,
-    lowStockItems,
-    recentOrders,
-    settings,
-  ] = await Promise.all([
-    // Today's non-cancelled orders
-    prisma.order.findMany({
-      where: {
-        createdAt: { gte: todayStart, lte: todayEnd },
-        status: { not: "CANCELLED" },
-      },
-      select: {
-        total: true,
-        orderType: true,
-        deliveryFee: true,
-      },
-    }),
+  // ✅ Sequential — no Promise.all() for Supabase PgBouncer compatibility
+  const todayOrders = await prisma.order.findMany({
+    where: {
+      createdAt: { gte: todayStart, lte: todayEnd },
+      status: { not: "CANCELLED" },
+    },
+    select: { total: true, orderType: true, deliveryFee: true },
+  })
 
-    // Yesterday's non-cancelled orders (for trend comparison)
-    prisma.order.findMany({
-      where: {
-        createdAt: { gte: yesterdayStart, lte: yesterdayEnd },
-        status: { not: "CANCELLED" },
+  const yesterdayOrders = await prisma.order.findMany({
+    where: {
+      createdAt: { gte: yesterdayStart, lte: yesterdayEnd },
+      status: { not: "CANCELLED" },
+    },
+    select: { total: true },
+  })
+
+  const pendingOrders = await prisma.order.count({ where: { status: "PENDING" } })
+  const preparingOrders = await prisma.order.count({ where: { status: "PREPARING" } })
+  const readyOrders = await prisma.order.count({ where: { status: "READY" } })
+  const outForDeliveryOrders = await prisma.order.count({ where: { status: "OUT_FOR_DELIVERY" } })
+  const activeTables = await prisma.table.count({ where: { status: "OCCUPIED" } })
+  const totalTables = await prisma.table.count()
+
+  const lowStockItems = await prisma.inventory.findMany({
+    where: { quantity: { lte: prisma.inventory.fields.lowStockThreshold } },
+    select: { id: true, name: true, quantity: true, unit: true, lowStockThreshold: true },
+    take: 5,
+    orderBy: { quantity: "asc" },
+  })
+
+  const recentOrders = await prisma.order.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 8,
+    include: {
+      table: { select: { number: true } },
+      user: { select: { name: true } },
+      orderItems: {
+        include: { menuItem: { select: { name: true } } },
+        take: 2,
       },
-      select: { total: true },
-    }),
+    },
+  })
 
-    // Live kitchen / delivery counts
-    prisma.order.count({ where: { status: "PENDING" } }),
-    prisma.order.count({ where: { status: "PREPARING" } }),
-    prisma.order.count({ where: { status: "READY" } }),
-    prisma.order.count({ where: { status: "OUT_FOR_DELIVERY" } }),
-
-    // Table occupancy
-    prisma.table.count({ where: { status: "OCCUPIED" } }),
-    prisma.table.count(),
-
-    // Low stock items (worst 5)
-    prisma.inventory.findMany({
-      where: {
-        quantity: { lte: prisma.inventory.fields.lowStockThreshold },
-      },
-      select: {
-        id: true,
-        name: true,
-        quantity: true,
-        unit: true,
-        lowStockThreshold: true,
-      },
-      take: 5,
-      orderBy: { quantity: "asc" },
-    }),
-
-    // Recent 8 orders
-    prisma.order.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 8,
-      include: {
-        table: { select: { number: true } },
-        user: { select: { name: true } },
-        orderItems: {
-          include: { menuItem: { select: { name: true } } },
-          take: 2,
-        },
-      },
-    }),
-
-    // Restaurant settings
-    prisma.settings.findFirst(),
-  ])
+  const settings = await prisma.settings.findFirst()
+  
 
   // ── Derived metrics ──
   const todayRevenue = todayOrders.reduce((s, o) => s + Number(o.total), 0)
@@ -780,14 +748,14 @@ async function getDashboardData() {
       ? 100
       : ((todayOrderCount - yesterdayOrderCount) / yesterdayOrderCount) * 100
 
-  const dineInOrders   = todayOrders.filter((o) => o.orderType === "DINE_IN")
+  const dineInOrders = todayOrders.filter((o) => o.orderType === "DINE_IN")
   const takeawayOrders = todayOrders.filter((o) => o.orderType === "TAKEAWAY")
   const deliveryOrders = todayOrders.filter((o) => o.orderType === "DELIVERY")
 
-  const dineInRevenue       = dineInOrders.reduce((s, o) => s + Number(o.total), 0)
-  const takeawayRevenue     = takeawayOrders.reduce((s, o) => s + Number(o.total), 0)
-  const deliveryRevenue     = deliveryOrders.reduce((s, o) => s + Number(o.total), 0)
-  const totalDeliveryFees   = deliveryOrders.reduce((s, o) => s + Number(o.deliveryFee ?? 0), 0)
+  const dineInRevenue = dineInOrders.reduce((s, o) => s + Number(o.total), 0)
+  const takeawayRevenue = takeawayOrders.reduce((s, o) => s + Number(o.total), 0)
+  const deliveryRevenue = deliveryOrders.reduce((s, o) => s + Number(o.total), 0)
+  const totalDeliveryFees = deliveryOrders.reduce((s, o) => s + Number(o.deliveryFee ?? 0), 0)
 
   const avgOrderValue = todayOrderCount > 0 ? todayRevenue / todayOrderCount : 0
 
@@ -831,31 +799,31 @@ function getGreeting() {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  PENDING:          "bg-yellow-100 text-yellow-800 border-yellow-200",
-  PREPARING:        "bg-blue-100 text-blue-800 border-blue-200",
-  READY:            "bg-green-100 text-green-800 border-green-200",
+  PENDING: "bg-yellow-100 text-yellow-800 border-yellow-200",
+  PREPARING: "bg-blue-100 text-blue-800 border-blue-200",
+  READY: "bg-green-100 text-green-800 border-green-200",
   OUT_FOR_DELIVERY: "bg-purple-100 text-purple-800 border-purple-200",
-  COMPLETED:        "bg-gray-100 text-gray-700 border-gray-200",
-  CANCELLED:        "bg-red-100 text-red-700 border-red-200",
+  COMPLETED: "bg-gray-100 text-gray-700 border-gray-200",
+  CANCELLED: "bg-red-100 text-red-700 border-red-200",
 }
 
 const STATUS_ICONS: Record<string, React.ReactNode> = {
-  PENDING:          <Clock className="h-3 w-3" />,
-  PREPARING:        <ChefHat className="h-3 w-3" />,
-  READY:            <CheckCircle2 className="h-3 w-3" />,
+  PENDING: <Clock className="h-3 w-3" />,
+  PREPARING: <ChefHat className="h-3 w-3" />,
+  READY: <CheckCircle2 className="h-3 w-3" />,
   OUT_FOR_DELIVERY: <Truck className="h-3 w-3" />,
-  COMPLETED:        <CheckCircle2 className="h-3 w-3" />,
-  CANCELLED:        <AlertTriangle className="h-3 w-3" />,
+  COMPLETED: <CheckCircle2 className="h-3 w-3" />,
+  CANCELLED: <AlertTriangle className="h-3 w-3" />,
 }
 
 function statusLabel(s: string) {
   const map: Record<string, string> = {
-    PENDING:          "Pending",
-    PREPARING:        "Preparing",
-    READY:            "Ready",
+    PENDING: "Pending",
+    PREPARING: "Preparing",
+    READY: "Ready",
     OUT_FOR_DELIVERY: "On the way",
-    COMPLETED:        "Completed",
-    CANCELLED:        "Cancelled",
+    COMPLETED: "Completed",
+    CANCELLED: "Cancelled",
   }
   return map[s] ?? s
 }
@@ -893,9 +861,8 @@ function StatCard({
         )}
         {change !== undefined && (
           <div
-            className={`flex items-center gap-1 mt-2 text-xs font-medium ${
-              up ? "text-emerald-600" : "text-red-500"
-            }`}
+            className={`flex items-center gap-1 mt-2 text-xs font-medium ${up ? "text-emerald-600" : "text-red-500"
+              }`}
           >
             {up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
             {up ? "+" : ""}{change.toFixed(1)}% vs yesterday
@@ -1107,18 +1074,16 @@ export default async function DashboardPage() {
                       <div className="flex items-center justify-between text-sm">
                         <span className="font-medium truncate max-w-[140px]">{item.name}</span>
                         <span
-                          className={`text-xs font-semibold ${
-                            isCritical ? "text-red-600" : "text-amber-600"
-                          }`}
+                          className={`text-xs font-semibold ${isCritical ? "text-red-600" : "text-amber-600"
+                            }`}
                         >
                           {Number(item.quantity).toFixed(1)} {item.unit}
                         </span>
                       </div>
                       <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                         <div
-                          className={`h-full rounded-full ${
-                            isCritical ? "bg-red-500" : "bg-amber-400"
-                          }`}
+                          className={`h-full rounded-full ${isCritical ? "bg-red-500" : "bg-amber-400"
+                            }`}
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -1277,7 +1242,7 @@ export default async function DashboardPage() {
           ) : (
             <div className="divide-y">
               {d.recentOrders.map((order) => {
-                const isDineIn   = order.orderType === "DINE_IN"
+                const isDineIn = order.orderType === "DINE_IN"
                 const isDelivery = order.orderType === "DELIVERY"
 
                 const typeIcon = isDineIn ? (
@@ -1291,18 +1256,18 @@ export default async function DashboardPage() {
                 const typeColor = isDineIn
                   ? "bg-blue-100 text-blue-600"
                   : isDelivery
-                  ? "bg-purple-100 text-purple-600"
-                  : "bg-orange-100 text-orange-600"
+                    ? "bg-purple-100 text-purple-600"
+                    : "bg-orange-100 text-orange-600"
 
                 const locationLabel = isDineIn
                   ? order.table
                     ? `Table ${order.table.number}`
                     : "Dine-In"
                   : isDelivery
-                  ? (order as any).customerName
-                    ? `${(order as any).customerName} · Delivery`
-                    : "Delivery"
-                  : (order as any).customerName || "Takeaway"
+                    ? (order as any).customerName
+                      ? `${(order as any).customerName} · Delivery`
+                      : "Delivery"
+                    : (order as any).customerName || "Takeaway"
 
                 const deliveryAddr = (order as any).deliveryAddress as string | null
                 const itemNames = order.orderItems
@@ -1354,9 +1319,8 @@ export default async function DashboardPage() {
                         </p>
                       </div>
                       <span
-                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${
-                          STATUS_STYLES[order.status] ?? "bg-gray-100 text-gray-700"
-                        }`}
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${STATUS_STYLES[order.status] ?? "bg-gray-100 text-gray-700"
+                          }`}
                       >
                         {STATUS_ICONS[order.status]}
                         {statusLabel(order.status)}
