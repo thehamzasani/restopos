@@ -6,10 +6,11 @@ import { tableUpdateSchema } from "@/lib/validations/table"
 // GET /api/tables/[id] - Get single table
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
+    const { id } = await params
     
     if (!session) {
       return NextResponse.json(
@@ -19,7 +20,7 @@ export async function GET(
     }
 
     const table = await prisma.table.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         orders: {
           where: {
@@ -56,10 +57,11 @@ export async function GET(
 // PUT /api/tables/[id] - Update table
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
+    const { id } = await params
     
     if (!session) {
       return NextResponse.json(
@@ -79,7 +81,7 @@ export async function PUT(
     const validatedData = tableUpdateSchema.parse(body)
 
     const table = await prisma.table.update({
-      where: { id: params.id },
+      where: { id },
       data: validatedData,
     })
 
@@ -115,10 +117,11 @@ export async function PUT(
 // DELETE /api/tables/[id] - Delete table
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
+    const { id } = await params
     
     if (!session) {
       return NextResponse.json(
@@ -136,7 +139,7 @@ export async function DELETE(
 
     // Check if table has active orders
     const table = await prisma.table.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         _count: {
           select: {
@@ -170,7 +173,7 @@ export async function DELETE(
     }
 
     await prisma.table.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({

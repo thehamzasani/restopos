@@ -6,10 +6,11 @@ import { prisma } from "@/lib/prisma"
 // GET /api/orders/[id] - Get single order
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
+    const { id } = await params
 
     if (!session) {
       return NextResponse.json(
@@ -19,7 +20,7 @@ export async function GET(
     }
 
     const order = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         table: true,
         user: {
@@ -60,10 +61,11 @@ export async function GET(
 // DELETE /api/orders/[id] - Cancel order
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
+    const { id } = await params
 
     if (!session) {
       return NextResponse.json(
@@ -73,7 +75,7 @@ export async function DELETE(
     }
 
     const order = await prisma.order.update({
-      where: { id: params.id },
+      where: { id },
       data: { status: "CANCELLED" },
     })
 

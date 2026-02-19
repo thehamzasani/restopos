@@ -10,7 +10,7 @@ import { Decimal } from "@prisma/client/runtime/library"
 // GET /api/inventory/[id] - Get single inventory item
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -18,8 +18,9 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { id } = await params
     const inventoryItem = await prisma.inventory.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         supplier: true,
         stockHistory: {
@@ -79,9 +80,11 @@ export async function GET(
 // PUT /api/inventory/[id] - Update inventory item
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+
   try {
+    const { id } = await params
     const session = await auth()
     if (!session || !["ADMIN", "MANAGER"].includes(session.user.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -91,7 +94,7 @@ export async function PUT(
     const validatedData = inventorySchema.parse(body)
 
     const inventoryItem = await prisma.inventory.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name: validatedData.name,
         description: validatedData.description,
@@ -142,9 +145,10 @@ export async function PUT(
 // DELETE /api/inventory/[id] - Delete inventory item
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await auth()
     if (!session || session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -152,7 +156,7 @@ export async function DELETE(
 
     // Check if inventory is linked to menu items
     const linkedItems = await prisma.menuItemIngredient.count({
-      where: { inventoryId: params.id },
+      where: { inventoryId: id },
     })
 
     if (linkedItems > 0) {
@@ -166,7 +170,7 @@ export async function DELETE(
     }
 
     await prisma.inventory.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({
@@ -185,9 +189,10 @@ export async function DELETE(
 // PATCH /api/inventory/[id] - Adjust stock
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await auth()
     if (!session || !["ADMIN", "MANAGER"].includes(session.user.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -198,7 +203,7 @@ export async function PATCH(
 
     // Get current inventory
     const currentInventory = await prisma.inventory.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!currentInventory) {
@@ -231,7 +236,7 @@ export async function PATCH(
     // Update inventory and create history in transaction
     const [updatedInventory] = await prisma.$transaction([
       prisma.inventory.update({
-        where: { id: params.id },
+        where: { id },
         data: {
           quantity: new Decimal(newQuantity),
           lastRestocked: validatedData.type === "IN" ? new Date() : undefined,
@@ -242,7 +247,7 @@ export async function PATCH(
       }),
       prisma.stockHistory.create({
         data: {
-          inventoryId: params.id,
+          inventoryId: id,
           quantity: new Decimal(Math.abs(validatedData.quantity)),
           type: validatedData.type,
           reason: validatedData.reason,

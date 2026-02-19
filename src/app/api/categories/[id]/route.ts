@@ -7,8 +7,9 @@ import { categoryUpdateSchema } from "@/lib/validations/category"
 // GET /api/categories/[id] - Get single category
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const session = await auth()
     
@@ -20,7 +21,7 @@ export async function GET(
     }
 
     const category = await prisma.category.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         menuItems: {
           select: {
@@ -56,11 +57,11 @@ export async function GET(
 // PUT /api/categories/[id] - Update category
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
-    
+    const { id } = await params
     if (!session) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
@@ -79,7 +80,7 @@ export async function PUT(
     const validatedData = categoryUpdateSchema.parse(body)
 
     const category = await prisma.category.update({
-      where: { id: params.id },
+      where: { id },
       data: validatedData,
     })
 
@@ -115,10 +116,11 @@ export async function PUT(
 // DELETE /api/categories/[id] - Delete category
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
+    const { id } = await params
     
     if (!session) {
       return NextResponse.json(
@@ -136,7 +138,7 @@ export async function DELETE(
 
     // Check if category has menu items
     const category = await prisma.category.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         _count: {
           select: { menuItems: true },
@@ -162,7 +164,7 @@ export async function DELETE(
     }
 
     await prisma.category.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({

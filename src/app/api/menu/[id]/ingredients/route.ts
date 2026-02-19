@@ -17,10 +17,11 @@ const ingredientsArraySchema = z.array(ingredientSchema)
 // GET - Get all ingredients for a menu item
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
+    const { id } = await params
 
     if (!session) {
       return NextResponse.json(
@@ -31,7 +32,7 @@ export async function GET(
 
     const ingredients = await prisma.menuItemIngredient.findMany({
       where: {
-        menuItemId: params.id,
+        menuItemId: id,
       },
       include: {
         inventory: {
@@ -75,10 +76,11 @@ export async function GET(
 // PUT - Update ingredients for a menu item (replace all)
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
+    const { id } = await params
 
     if (!session || !["ADMIN", "MANAGER"].includes(session.user.role)) {
       return NextResponse.json(
@@ -107,7 +109,7 @@ export async function PUT(
 
     // Check if menu item exists
     const menuItem = await prisma.menuItem.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!menuItem) {
@@ -139,7 +141,7 @@ export async function PUT(
       // Delete existing ingredients
       await tx.menuItemIngredient.deleteMany({
         where: {
-          menuItemId: params.id,
+          menuItemId: id,
         },
       })
 
@@ -147,7 +149,7 @@ export async function PUT(
       if (ingredients.length > 0) {
         await tx.menuItemIngredient.createMany({
           data: ingredients.map((ing) => ({
-            menuItemId: params.id,
+            menuItemId: id,
             inventoryId: ing.inventoryId,
             quantityUsed: ing.quantityUsed,
           })),
@@ -158,7 +160,7 @@ export async function PUT(
     // Fetch updated ingredients
     const updatedIngredients = await prisma.menuItemIngredient.findMany({
       where: {
-        menuItemId: params.id,
+        menuItemId: id,
       },
       include: {
         inventory: {
@@ -198,10 +200,11 @@ export async function PUT(
 // DELETE - Remove all ingredients from a menu item
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
+    const { id } = await params
 
     if (!session || !["ADMIN", "MANAGER"].includes(session.user.role)) {
       return NextResponse.json(
@@ -212,7 +215,7 @@ export async function DELETE(
 
     await prisma.menuItemIngredient.deleteMany({
       where: {
-        menuItemId: params.id,
+        menuItemId: id,
       },
     })
 

@@ -9,10 +9,11 @@ import bcrypt from "bcryptjs"
 // GET /api/users/[id] - Get user by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
+    const { id } = await params
     
     if (!session) {
       return NextResponse.json(
@@ -29,7 +30,7 @@ export async function GET(
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: {
         id: true,
         name: true,
@@ -64,10 +65,11 @@ export async function GET(
 // PUT /api/users/[id] - Update user
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
+    const { id } = await params
     
     if (!session) {
       return NextResponse.json(
@@ -91,7 +93,7 @@ export async function PUT(
       const existingUser = await prisma.user.findFirst({
         where: {
           email: validatedData.email,
-          NOT: { id: params.id },
+          NOT: { id },
         },
       })
 
@@ -112,7 +114,7 @@ export async function PUT(
     }
 
     const user = await prisma.user.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       select: {
         id: true,
@@ -157,10 +159,11 @@ export async function PUT(
 // DELETE /api/users/[id] - Delete user
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
+    const { id } = await params
     
     if (!session) {
       return NextResponse.json(
@@ -177,7 +180,7 @@ export async function DELETE(
     }
 
     // Prevent deleting self
-    if (session.user.id === params.id) {
+    if (session.user.id === id) {
       return NextResponse.json(
         { success: false, error: "Cannot delete your own account" },
         { status: 400 }
@@ -185,7 +188,7 @@ export async function DELETE(
     }
 
     await prisma.user.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({

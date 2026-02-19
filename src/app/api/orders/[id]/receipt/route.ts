@@ -5,11 +5,11 @@ import { prisma } from "@/lib/prisma"
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
-
+    const { id } = await params
     if (!session) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
@@ -17,7 +17,7 @@ export async function GET(
       )
     }
 
-    const orderId = params.id
+    const orderId = id
 
     // Fetch order with all details
     const order = await prisma.order.findUnique({

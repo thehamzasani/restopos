@@ -7,11 +7,11 @@ import { menuItemUpdateSchema } from "@/lib/validations/menuItem"
 // GET /api/menu/[id] - Get single menu item
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await auth()
-
+        const { id } = await params
         if (!session) {
             return NextResponse.json(
                 { success: false, error: "Unauthorized" },
@@ -20,7 +20,7 @@ export async function GET(
         }
 
         const menuItem = await prisma.menuItem.findUnique({
-            where: { id: params.id },
+            where: {  id },
             include: {
                 category: true,
                 ingredients: {
@@ -54,10 +54,11 @@ export async function GET(
 // PUT /api/menu/[id] - Update menu item
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await auth()
+        const { id } = await params
 
         if (!session) {
             return NextResponse.json(
@@ -91,7 +92,7 @@ export async function PUT(
         }
 
         const menuItem = await prisma.menuItem.update({
-            where: { id: params.id },
+            where: { id},
             data: validatedData,
             include: {
                 category: {
@@ -135,10 +136,11 @@ export async function PUT(
 // DELETE /api/menu/[id] - Delete menu item
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const session = await auth()
+        const { id } = await params
 
         if (!session) {
             return NextResponse.json(
@@ -156,7 +158,7 @@ export async function DELETE(
 
         // Check if menu item exists
         const menuItem = await prisma.menuItem.findUnique({
-            where: { id: params.id },
+            where: { id },
         })
 
         if (!menuItem) {
@@ -167,7 +169,7 @@ export async function DELETE(
         }
 
         await prisma.menuItem.delete({
-            where: { id: params.id },
+            where: { id },
         })
 
         return NextResponse.json({

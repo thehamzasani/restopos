@@ -6,9 +6,10 @@ import { prisma } from "@/lib/prisma"
 import { updateOrderStatusSchema } from "@/lib/validations/order"
 
 // PUT /api/orders/[id]/status - Update order status
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth()
+    const { id } = await params
     if (!session) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     }
@@ -27,7 +28,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
     // Find the existing order
     const existingOrder = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { table: true },
     })
 
@@ -38,7 +39,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     // Update order and handle side effects
     const updatedOrder = await prisma.$transaction(async (tx) => {
       const order = await tx.order.update({
-        where: { id: params.id },
+        where: { id },
         data: { status },
         include: {
           table: { select: { id: true, number: true } },
@@ -59,7 +60,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         const activeOrders = await tx.order.count({
           where: {
             tableId: existingOrder.tableId,
-            id: { not: params.id },
+            id: { not: id },
             status: { notIn: ["COMPLETED", "CANCELLED"] },
           },
         })
@@ -75,7 +76,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       // Auto-deduct inventory on COMPLETED
       if (status === "COMPLETED" && existingOrder.status !== "COMPLETED") {
         const orderItems = await tx.orderItem.findMany({
-          where: { orderId: params.id },
+          where: { orderId: id },
           include: {
             menuItem: {
               include: {
