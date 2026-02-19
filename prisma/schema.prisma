@@ -6,7 +6,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url       = env("DATABASE_URL")       // Pooled — used by app at runtime
+  directUrl = env("DIRECT_URL")  
 }
 
 // ============================================
