@@ -5,10 +5,11 @@ import { prisma } from "@/lib/prisma"
 import { UserRole } from "@prisma/client"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true,
   session: {
     strategy: "jwt",
   },
-  pages: {
+  pages: {    
     signIn: "/login",
   },
   providers: [
