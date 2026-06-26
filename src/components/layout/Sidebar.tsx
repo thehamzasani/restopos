@@ -15,6 +15,7 @@ import {
   Settings,
   Users,
   Percent,
+  Bot,
   ChevronDown,
   ChevronRight,
 } from "lucide-react"
@@ -66,6 +67,12 @@ const navigation = [
     name: "Reports",
     href: "/dashboard/reports",
     icon: BarChart3,
+    roles: ["ADMIN", "MANAGER"],
+  },
+  {
+    name: "AI Assistant",
+    href: "/dashboard/ai",
+    icon: Bot,
     roles: ["ADMIN", "MANAGER"],
   },
   {
