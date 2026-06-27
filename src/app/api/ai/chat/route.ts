@@ -18,9 +18,15 @@ export async function POST(req: Request) {
     }
 
     const { intent, params } = classifyIntent(message)
-    const data = await fetchDataForIntent(intent, params)
     const systemPrompt = buildSystemPrompt(intent)
-    const userPrompt = buildUserPrompt(message, data)
+
+    let userPrompt: string
+    if (intent === "general_chat") {
+      userPrompt = message
+    } else {
+      const data = await fetchDataForIntent(intent, params)
+      userPrompt = buildUserPrompt(message, data, intent)
+    }
 
     const ollamaBody = await streamFromOllama([
       { role: "system", content: systemPrompt },

@@ -14,6 +14,7 @@ export type Intent =
   | "combo_suggestion"
   | "sales_drop"
   | "low_stock"
+  | "recent_orders"
   | "general_chat"
 
 export interface IntentResult {
@@ -137,7 +138,7 @@ export function classifyIntent(message: string): IntentResult {
   }
 
   // Best day / highest sales day (with common typos: higest, hightest)
-  if (/(h[i1]g+h[e3a]s+t\s+sales\s+day|best day|which day (had|has) the (highest|most)|peak day|best performing day|most sales|maximum|highest revenue|highest sales)/i.test(lower)) {
+  if (/(h[i1]g+h?[e3a]s+t\s+sales\s+day|best day|which day (had|has) the (highest|most)|peak day|best performing day|most sales|maximum|highest revenue|highest sales)/i.test(lower)) {
     const isAllTime = /(until now|all time|ever|of all time|since beginning|history|record|of all time)/i.test(lower)
     return { intent: "best_day", params: { period: isAllTime ? "all" : (dateParams.period || "all") } }
   }
@@ -156,6 +157,14 @@ export function classifyIntent(message: string): IntentResult {
   // Compare sales
   if (/(compare|vs |versus|than yesterday|difference between)/i.test(lower)) {
     return { intent: "compare_sales", params: {} }
+  }
+
+  // Recent / last orders (must come before dateParam fallback)
+  if (/(what (was|were|did)|show|list|get).*(last|latest|recent|today'?s|yesterday'?s).*(order|ordered|sold|sale|transaction)/i.test(lower)
+    || /(last|latest|recent|next)\s+(\d+\s+)?(order|ordered|sale)/i.test(lower)
+    || /(orders?\s+(today|yesterday|recent|latest|last))/i.test(lower)) {
+    const countMatch = lower.match(/(\d+)\s+orders?/i)
+    return { intent: "recent_orders", params: { limit: countMatch ? parseInt(countMatch[1]) : 5, ...dateParams } }
   }
 
   // Specific date range query with no other intent matched

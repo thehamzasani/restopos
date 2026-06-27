@@ -10,7 +10,7 @@ Rules:
 
 ⚠️ CRITICAL - You MUST follow these rules:
 - ONLY use the data provided in the "Here is the restaurant data:" section below
-- If the data section shows empty arrays "[]" or zero values, say "No data available for that query"
+- If the data shows zeros or empty results, say so honestly (e.g. "No orders today yet", "No sales in that period")
 - NEVER invent dates, sales figures, order counts, or menu item names
 - NEVER mention "my knowledge cutoff", "as of my training", or "December 2023"
 - If you don't have the data, say "I don't have data for that" — do not make it up
@@ -96,22 +96,36 @@ You are given inventory data showing low stock items.
 Present them clearly: item name, current quantity, threshold.
 Recommend reorder priorities. Mention the supplier if available.`,
 
+  recent_orders: BASE_SYSTEM + `
+
+You are given recent order data with item details.
+Present each order clearly: order number, time, type (Dine-In/Takeaway/Delivery), customer name if available, items ordered, total, and payment method.
+If no orders exist for the requested period, say so naturally.`,
+
   general_chat: BASE_SYSTEM + `
 
-You're a helpful restaurant data assistant. Only answer if you have data.
-If the user asks about sales, inventory, or menu data without providing it, tell them you need to look it up and they should ask a specific question.`,
+General conversation allowed. You can answer any question the user asks.
+When they ask about their restaurant data (sales, inventory, menu, etc.), tell them to ask a specific data question (e.g. "what were sales yesterday" or "top selling items").
+Keep the conversation helpful and friendly.`,
 }
 
 export function buildSystemPrompt(intent: string): string {
   return SYSTEM_PROMPTS[intent] || SYSTEM_PROMPTS.general_chat
 }
 
+import { formatDataForPrompt } from "./data-formatter"
+
 export function buildUserPrompt(
   question: string,
   data?: Record<string, any>,
+  intent?: string,
 ): string {
   if (!data || Object.keys(data).length === 0) {
-    return `No restaurant data is available for this query.\n\nUser question: ${question}`
+    return `User question: ${question}`
   }
-  return `Here is the restaurant data:\n${JSON.stringify(data, null, 2)}\n\nUser question: ${question}`
+  const formatted = formatDataForPrompt(data, intent || "general_chat")
+  if (formatted.startsWith("NO DATA")) {
+    return `User question: ${question}`
+  }
+  return `Here is the restaurant data:\n${formatted}\n\nUser question: ${question}`
 }

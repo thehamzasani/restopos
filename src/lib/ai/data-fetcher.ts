@@ -287,6 +287,59 @@ export async function fetchDataForIntent(intent: Intent, params: Record<string, 
       return { lowStock, totalInventory, totalLow: lowStock.length }
     }
 
+    case "recent_orders": {
+      const where: any = { status: { in: ["COMPLETED", "READY"] } }
+      if (params.start && params.end) {
+        where.createdAt = { gte: new Date(params.start), lte: new Date(params.end) }
+      }
+      const orders = await prisma.order.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: params.limit || 5,
+        select: {
+          id: true,
+          orderNumber: true,
+          orderType: true,
+          total: true,
+          subtotal: true,
+          discount: true,
+          status: true,
+          paymentMethod: true,
+          createdAt: true,
+          customerName: true,
+          customerPhone: true,
+          orderItems: {
+            select: {
+              quantity: true,
+              subtotal: true,
+              menuItem: { select: { name: true } },
+            },
+          },
+        },
+      })
+
+      return {
+        recentOrders: orders.map((o) => ({
+          id: o.id,
+          orderNumber: o.orderNumber,
+          orderType: o.orderType,
+          total: Number(o.total),
+          subtotal: Number(o.subtotal),
+          discount: Number(o.discount),
+          status: o.status,
+          paymentMethod: o.paymentMethod,
+          createdAt: o.createdAt,
+          customerName: o.customerName,
+          customerPhone: o.customerPhone,
+          items: o.orderItems.map((i) => ({
+            name: i.menuItem.name,
+            quantity: i.quantity,
+            subtotal: Number(i.subtotal),
+          })),
+        })),
+      }
+    }
+
     case "general_chat": {
       return {}
     }
