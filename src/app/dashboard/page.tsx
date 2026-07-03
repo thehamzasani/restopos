@@ -899,13 +899,13 @@ export default async function DashboardPage() {
         </div>
         <div className="flex gap-2">
           <Button asChild size="sm" variant="outline">
-            <Link href="/kitchen">
+            <Link href="/dashboard/kitchen">
               <ChefHat className="h-4 w-4 mr-2" />
               Kitchen View
             </Link>
           </Button>
           <Button asChild size="sm">
-            <Link href="/pos">
+            <Link href="/dashboard/pos">
               <ShoppingCart className="h-4 w-4 mr-2" />
               New Order
             </Link>
@@ -1033,7 +1033,7 @@ export default async function DashboardPage() {
 
             <div className="pt-1">
               <Button asChild variant="outline" size="sm" className="w-full">
-                <Link href="/kitchen">
+                <Link href="/dashboard/kitchen">
                   Go to Kitchen Display
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Link>
@@ -1236,7 +1236,7 @@ export default async function DashboardPage() {
               <ShoppingCart className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-40" />
               <p className="text-sm text-muted-foreground">No orders yet</p>
               <Button asChild size="sm" className="mt-4">
-                <Link href="/pos">Create First Order</Link>
+                <Link href="/dashboard/pos">Create First Order</Link>
               </Button>
             </div>
           ) : (
